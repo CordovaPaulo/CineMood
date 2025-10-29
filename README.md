@@ -1,16 +1,39 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Setup
+
+Install dependencies and prepare environment before running the dev server.
+
+Windows (PowerShell)
+```powershell
+bun install
+Copy-Item .env.example .env.local
+```
+
+Windows (CMD)
+```cmd
+bun install
+copy .env.example .env.local
+```
+
+macOS / Linux
+```bash
+bun install
+cp .env.example .env.local
+```
+
+Alternative package managers:
+```bash
+npm install
+# or
+pnpm install
+```
+
 ## Getting Started
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
 
