@@ -6,16 +6,17 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { TextField, Button, Card, CardContent } from "@mui/material"
 import Link from "next/link"
-import { Navbar } from "@/components/navbar"
+import { Navbar } from "../../components/navbar"
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter()
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock login
+    // Mock signup
     router.push("/")
   }
 
@@ -34,9 +35,34 @@ export default function LoginPage() {
           }}
         >
           <CardContent className="py-12 px-8">
-            <h1 className="text-3xl font-bold text-[#A855F7] text-center mb-8">Welcome Back</h1>
+            <h1 className="text-3xl font-bold text-[#A855F7] text-center mb-8">Join CineMood</h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-white text-sm font-medium mb-2">Name</label>
+                <TextField
+                  fullWidth
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      color: "white",
+                      backgroundColor: "#0B0B0F",
+                      borderRadius: "0.5rem",
+                      "& fieldset": {
+                        borderColor: "#2D2D3D",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#A855F7",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#A855F7",
+                      },
+                    },
+                  }}
+                />
+              </div>
+
               <div>
                 <label className="block text-white text-sm font-medium mb-2">Email</label>
                 <TextField
@@ -107,14 +133,14 @@ export default function LoginPage() {
                   },
                 }}
               >
-                Login
+                Sign Up
               </Button>
             </form>
 
             <p className="text-center text-[#A0A0A0] text-sm mt-6">
-              Don't have an account?{" "}
-              <Link href="/signup" className="text-[#A855F7] hover:underline">
-                Sign Up
+              Already have an account?{" "}
+              <Link href="/login" className="text-[#A855F7] hover:underline">
+                Login
               </Link>
             </p>
           </CardContent>
