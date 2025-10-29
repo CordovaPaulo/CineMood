@@ -6,9 +6,9 @@
 :root {
   --background: #0b0b0f;
   --foreground: #ffffff;
-  --primary: #a855f7;
-  --primary-dark: #9333ea;
-  --accent: #a855f7;
+  --primary: #b549e7;
+  --primary-dark: #9a39c7;
+  --accent: #b549e7;
   --card-bg: #1a1a24;
   --border-color: #2d2d3d;
   --text-secondary: #a0a0a0;
@@ -137,11 +137,12 @@ body::before {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 25%, rgba(168, 85, 247, 0.35) 0%, transparent 35%),
-    radial-gradient(circle at 85% 10%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 5% 75%, rgba(168, 85, 247, 0.2) 0%, transparent 45%),
-    radial-gradient(circle at 95% 90%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.03) 0%, transparent 70%);
+  background: 
+    /* radial-gradient(circle at 20% 25%, rgba(181, 73, 231, 0.35) 0%, transparent 35%), */
+    radial-gradient(circle at 85% 10%, rgba(181, 73, 231, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 5% 85%, rgba(181, 73, 231, 0.2) 0%, transparent 45%),
+    radial-gradient(circle at 35% 35%, rgba(181, 73, 231, 0.20) 0%, transparent 10%),
+    radial-gradient(circle at 65% 65%, rgba(181, 73, 231, 0.25) 0%, transparent 10%);
   pointer-events: none;
   z-index: 0;
 }

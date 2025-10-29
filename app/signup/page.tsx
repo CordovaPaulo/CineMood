@@ -7,17 +7,42 @@ import { useRouter } from "next/navigation"
 import { TextField, Button, Card, CardContent } from "@mui/material"
 import Link from "next/link"
 import { Navbar } from "../../components/navbar"
+import { validatePassword } from "@/utils/passwordValidation"
+import { showToast } from "@/utils/toastify"
 
 export default function SignupPage() {
   const router = useRouter()
-  const [name, setName] = useState("")
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock signup
-    router.push("/")
+    if (!validatePassword(password)) {
+      showToast(
+        "Password must be at least 8 characters long and include 1 uppercase, 1 lowercase, 1 number, and 1 special character.",
+        "error"
+      )
+      return
+    }
+    try {
+      fetch("/api/auth/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, email, password }),
+    })
+    .then((res) => {
+      if (res.ok) {
+        showToast("Signup successful!", "success")
+        router.push("/")
+      }
+    })
+    } catch (error) {
+      showToast("An error occurred during signup. Please try again.", "error")
+      return
+    }
   }
 
   return (
@@ -35,15 +60,15 @@ export default function SignupPage() {
           }}
         >
           <CardContent className="py-12 px-8">
-            <h1 className="text-3xl font-bold text-[#A855F7] text-center mb-8">Join CineMood</h1>
+            <h1 className="text-3xl font-bold text-[#b549e7] text-center mb-8">Join CineMood</h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label className="block text-white text-sm font-medium mb-2">Name</label>
                 <TextField
                   fullWidth
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "white",
@@ -53,10 +78,10 @@ export default function SignupPage() {
                         borderColor: "#2D2D3D",
                       },
                       "&:hover fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                       "&.Mui-focused fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                     },
                   }}
@@ -79,10 +104,10 @@ export default function SignupPage() {
                         borderColor: "#2D2D3D",
                       },
                       "&:hover fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                       "&.Mui-focused fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                     },
                   }}
@@ -105,10 +130,10 @@ export default function SignupPage() {
                         borderColor: "#2D2D3D",
                       },
                       "&:hover fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                       "&.Mui-focused fieldset": {
-                        borderColor: "#A855F7",
+                        borderColor: "#b549e7",
                       },
                     },
                   }}
@@ -120,7 +145,7 @@ export default function SignupPage() {
                 type="submit"
                 variant="contained"
                 sx={{
-                  backgroundColor: "#A855F7",
+                  backgroundColor: "#b549e7",
                   color: "white",
                   textTransform: "none",
                   fontSize: "1rem",
@@ -139,7 +164,7 @@ export default function SignupPage() {
 
             <p className="text-center text-[#A0A0A0] text-sm mt-6">
               Already have an account?{" "}
-              <Link href="/login" className="text-[#A855F7] hover:underline">
+              <Link href="/" className="text-[#b549e7] hover:underline">
                 Login
               </Link>
             </p>
