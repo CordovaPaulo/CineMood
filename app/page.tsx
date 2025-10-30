@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { TextField, Button, Card, CardContent } from "@mui/material"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
+import { toast } from "react-toastify"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -25,11 +26,18 @@ export default function LoginPage() {
       })
       .then((res) => {
         if (res.ok) {
+          toast.success("Login successful!")
           router.push("/home")
+        }
+        if (res.status === 404) {
+          toast.error("User not found.")
+        }
+        if (res.status === 401) {
+          toast.error("Invalid credentials.")
         }
       })
     } catch (error) {
-
+      toast.error("An error occurred during login. Please try again.")
     }
     // router.push("/home")
   }

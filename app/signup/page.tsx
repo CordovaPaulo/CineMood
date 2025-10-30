@@ -8,7 +8,8 @@ import { TextField, Button, Card, CardContent } from "@mui/material"
 import Link from "next/link"
 import { Navbar } from "../../components/navbar"
 import { validatePassword } from "@/utils/passwordValidation"
-import { showToast } from "@/utils/toastify"
+import { toast } from "react-toastify";
+import { validateEmail } from "@/utils/validateEmail"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -18,11 +19,12 @@ export default function SignupPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateEmail(email)) {
+      toast.error("Please enter a valid email address.")
+      return
+    }
     if (!validatePassword(password)) {
-      showToast(
-        "Password must be at least 8 characters long and include 1 uppercase, 1 lowercase, 1 number, and 1 special character.",
-        "error"
-      )
+      toast.error("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.")
       return
     }
     try {
@@ -35,12 +37,12 @@ export default function SignupPage() {
     })
     .then((res) => {
       if (res.ok) {
-        showToast("Signup successful!", "success")
+        toast.success("Signup successful! Please log in.")
         router.push("/")
       }
     })
     } catch (error) {
-      showToast("An error occurred during signup. Please try again.", "error")
+      toast.error("An error occurred during signup. Please try again.")
       return
     }
   }
