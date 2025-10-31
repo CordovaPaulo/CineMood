@@ -78,8 +78,6 @@ export default function Home() {
         body: JSON.stringify({ text: textInput, mood: selectedMood, moodResponse: moodResponse }),
       })
 
-      console.log("Response received:", res)
-
       const contentType = (res.headers.get("content-type") || "").toLowerCase()
       let payload: any = null
       if (contentType.includes("application/json")) {
@@ -89,10 +87,8 @@ export default function Home() {
         payload = { error: "non-json response", text }
       }
 
-      // Log the parsed JSON returned by the recommendations endpoint
-      console.log("Parsed JSON used for TMDb fetch:", payload.parsed ?? null)
-      // Also log the full payload (includes results)
-      console.log("Recommendations payload:", payload)
+      // Log parsed inputs returned by the recommendations API for debugging
+      console.log("API parsed params:", payload.parsed ?? payload)
 
       if (!res.ok) {
         console.error("Failed to fetch recommendations:", payload)
@@ -100,11 +96,36 @@ export default function Home() {
         return
       }
 
-      // persist results and parsed params for the results page
-      sessionStorage.setItem("recommendations", JSON.stringify(payload.results || []))
+      // persist full results for refresh / fallback
+      const fullResults = payload.results || []
+      try {
+        sessionStorage.setItem("recommendations_all", JSON.stringify(fullResults))
+      } catch {}
+
+      // also save parsed params and selections
       sessionStorage.setItem("parsedParams", JSON.stringify(payload.parsed || {}))
       sessionStorage.setItem("selectedMood", selectedMood)
       sessionStorage.setItem("moodResponse", moodResponse || "")
+
+      // sample 5 to show immediately (transient "props" for results page)
+      const sample = (() => {
+        const out: any[] = []
+        const src = Array.isArray(fullResults) ? fullResults.slice() : []
+        // shuffle src (Fisher-Yates)
+        for (let i = src.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[src[i], src[j]] = [src[j], src[i]]
+        }
+        for (let i = 0; i < Math.min(5, src.length); i++) out.push(src[i])
+        return out
+      })()
+
+      // transiently pass sampled results to the results page via a global (used as "props" at mount)
+      try {
+        ;(window as any).__CINEMOOD_RESULTS__ = sample
+        ;(window as any).__CINEMOOD_RESULTS_ALL__ = fullResults
+        ;(window as any).__CINEMOOD_PARSED__ = payload.parsed || {}
+      } catch {}
 
       router.push("/results")
     } catch (error) {
