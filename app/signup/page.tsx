@@ -19,6 +19,10 @@ export default function SignupPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if(!username) {
+      toast.error("Please enter your name.")
+      return
+    }
     if (!validateEmail(email)) {
       toast.error("Please enter a valid email address.")
       return
@@ -94,7 +98,7 @@ export default function SignupPage() {
                 <label className="block text-white text-sm font-medium mb-2">Email</label>
                 <TextField
                   fullWidth
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   sx={{
