@@ -61,10 +61,10 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-white text-sm font-medium mb-2">Email</label>
+                <label className="block text-white text-sm font-medium mb-2">Username/Email</label>
                 <TextField
                   fullWidth
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   sx={{

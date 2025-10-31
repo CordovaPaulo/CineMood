@@ -9,9 +9,18 @@ import { use } from "react";
 export async function POST(request: Request) {
     try {
         await connectdb();
-        const { email, password } = await request.json();
+        const body = await request.json();
+        const password = body.password;
+        const identifier = body.email;
 
-        const existingUser = await User.findOne({ email });
+        if (!identifier || !password) {
+            return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
+        }
+
+        const existingUser = await User.findOne({
+            $or: [{ email: identifier }, { username: identifier }]
+        });
+
         if (!existingUser) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
