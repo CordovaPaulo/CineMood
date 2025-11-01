@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { TextField, Button, Card, CardContent } from "@mui/material"
+import { TextField, Button, Card, CardContent, Backdrop, CircularProgress } from "@mui/material"
 import Link from "next/link"
 import { Navbar } from "../../components/navbar"
 import { validatePassword } from "@/utils/passwordValidation"
@@ -16,38 +16,33 @@ export default function SignupPage() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false) // added
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => { // make async
     e.preventDefault()
-    if(!username) {
-      toast.error("Please enter your name.")
-      return
-    }
-    if (!validateEmail(email)) {
-      toast.error("Please enter a valid email address.")
-      return
-    }
+    if(!username) { toast.error("Please enter your name."); return }
+    if (!validateEmail(email)) { toast.error("Please enter a valid email address."); return }
     if (!validatePassword(password)) {
       toast.error("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.")
       return
     }
+    setLoading(true) // start loader
     try {
-      fetch("/api/auth/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, email, password }),
-    })
-    .then((res) => {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      })
       if (res.ok) {
         toast.success("Signup successful! Please log in.")
         router.push("/")
+      } else {
+        toast.error("Signup failed. Please try again.")
       }
-    })
     } catch (error) {
       toast.error("An error occurred during signup. Please try again.")
-      return
+    } finally {
+      setLoading(false) // stop loader
     }
   }
 
@@ -75,20 +70,15 @@ export default function SignupPage() {
                   fullWidth
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading} // disable during loading
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "white",
                       backgroundColor: "#0B0B0F",
                       borderRadius: "0.5rem",
-                      "& fieldset": {
-                        borderColor: "#2D2D3D",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#b549e7",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#b549e7",
-                      },
+                      "& fieldset": { borderColor: "#2D2D3D" },
+                      "&:hover fieldset": { borderColor: "#b549e7" },
+                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
                     },
                   }}
                 />
@@ -101,20 +91,15 @@ export default function SignupPage() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading} // disable during loading
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "white",
                       backgroundColor: "#0B0B0F",
                       borderRadius: "0.5rem",
-                      "& fieldset": {
-                        borderColor: "#2D2D3D",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#b549e7",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#b549e7",
-                      },
+                      "& fieldset": { borderColor: "#2D2D3D" },
+                      "&:hover fieldset": { borderColor: "#b549e7" },
+                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
                     },
                   }}
                 />
@@ -127,20 +112,15 @@ export default function SignupPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading} // disable during loading
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       color: "white",
                       backgroundColor: "#0B0B0F",
                       borderRadius: "0.5rem",
-                      "& fieldset": {
-                        borderColor: "#2D2D3D",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#b549e7",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#b549e7",
-                      },
+                      "& fieldset": { borderColor: "#2D2D3D" },
+                      "&:hover fieldset": { borderColor: "#b549e7" },
+                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
                     },
                   }}
                 />
@@ -150,6 +130,8 @@ export default function SignupPage() {
                 fullWidth
                 type="submit"
                 variant="contained"
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 sx={{
                   backgroundColor: "#b549e7",
                   color: "white",
@@ -159,12 +141,10 @@ export default function SignupPage() {
                   padding: "12px",
                   borderRadius: "0.5rem",
                   marginTop: "1rem",
-                  "&:hover": {
-                    backgroundColor: "#9333EA",
-                  },
+                  "&:hover": { backgroundColor: "#9333EA" },
                 }}
               >
-                Sign Up
+                {loading ? "Signing up..." : "Sign Up"}
               </Button>
             </form>
 
@@ -177,6 +157,12 @@ export default function SignupPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Full-screen loader */}
+      <Backdrop open={loading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <CircularProgress color="inherit" />
+        <span style={{ marginLeft: 12 }}>Creating your account...</span>
+      </Backdrop>
     </main>
   )
 }

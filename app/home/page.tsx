@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Backdrop,
+  CircularProgress,
 } from "@mui/material"
 import { AutoAwesome } from "@mui/icons-material"
 import { Navbar } from "../../components/navbar"
@@ -305,6 +307,7 @@ export default function Home() {
                 }}
                 disabled={!moodResponse || loading}
                 fullWidth
+                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 sx={{
                   backgroundColor: "#A855F7",
                   color: "white",
@@ -320,7 +323,7 @@ export default function Home() {
                   },
                 }}
               >
-                Continue
+                {loading ? "Finding..." : "Continue"}
               </Button>
             </DialogActions>
           </Dialog>
@@ -344,11 +347,10 @@ export default function Home() {
                   fontWeight: 600,
                   padding: "12px 48px",
                   borderRadius: "0.75rem",
-                  "&:hover": {
-                    backgroundColor: "#9333EA",
-                  },
+                  "&:hover": { backgroundColor: "#9333EA" },
                 }}
                 disabled={loading}
+                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
               >
                 {loading ? "Finding..." : "Find Movies"}
               </Button>
@@ -356,6 +358,12 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Full-screen loader while finding movies */}
+      <Backdrop open={loading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.drawer + 1 }}>
+        <CircularProgress color="inherit" />
+        <span style={{ marginLeft: 12 }}>Finding movies for your mood...</span>
+      </Backdrop>
     </main>
   )
 }

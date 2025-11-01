@@ -320,32 +320,24 @@ Top-level intent (highest priority):
   // ensure parsed is an object
   parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match" };
 
-  // normalize and lightly post-process to enforce format + small non-determinism
-  // normalize moodResponse
   parsed.moodResponse = parsed.moodResponse === "address" ? "address" : "match";
 
-  // Coerce arrays/strings to safe formats
   const genresArr = coerceToStringArray(parsed.genres);
   const keywordsArr = coerceToStringArray(parsed.keywords);
 
-  // Normalize keywords into single-word tokens (prefer model-provided but always single words)
   let singleKeywords = normalizeKeywordsToSingleWords(keywordsArr || [], safeText, 8);
 
-  // If model provided nothing, extract from text
   if (!singleKeywords || singleKeywords.length === 0) {
     singleKeywords = extractKeywordsFromText(safeText, 8);
   }
 
-  // Respect explicit user request to remain in a mood (do not force 'address' behavior)
   const keepMood = explicitKeepMood(safeText, mood);
 
-  // Apply mood-based keyword adjustments: ensure keywords align or counteract according to moodResponse
   if (mood && !keepMood) {
     const moodKey = Object.keys(MOOD_KEYWORD_HINTS).find((k) => k.toLowerCase() === mood.toLowerCase());
     const hints = moodKey ? MOOD_KEYWORD_HINTS[moodKey] : null;
 
     if (parsed.moodResponse === "match" && hints?.match?.length) {
-      // prefer match hints: ensure at least one hint is present (but don't exceed limit)
       const need = 2; // at most 2 hint tokens
       const present = new Set(singleKeywords.map((s) => s.toLowerCase()));
       for (const h of hints.match) {

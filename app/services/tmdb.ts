@@ -1,4 +1,4 @@
-import { randomInt } from "crypto";
+// import { randomInt } from "crypto"; // removed (unused)
 
 // lightweight TMDb helper: discover movies using parsed params
 const TMDB_BASE = "https://api.themoviedb.org/3";
@@ -62,6 +62,8 @@ function buildDiscoverQuery(p: DiscoverParams, opts: { page?: number; sort_by?: 
 
   // bias toward more-rated/popular items but require some minimum votes to reduce obscure duplicates
   qp["vote_count.gte"] = "5";
+  // optional: gently lift average rating floor without hard filtering too much
+  // qp["vote_average.gte"] = "5"; // keep broad; reranker heavily favors >6
 
   const with_genres = genresToIds(p.genres);
   if (with_genres) qp["with_genres"] = with_genres;
@@ -75,6 +77,29 @@ function buildDiscoverQuery(p: DiscoverParams, opts: { page?: number; sort_by?: 
   return new URLSearchParams(qp).toString();
 }
 
+// fetch the best YouTube trailer id (key) for a movie
+async function fetchTrailerId(movieId: number): Promise<string | null> {
+  if (!KEY) return null;
+  try {
+    const url = `${TMDB_BASE}/movie/${movieId}/videos?api_key=${KEY}&language=en-US`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const j = await res.json().catch(() => null);
+    if (!j || !Array.isArray(j.results)) return null;
+
+    const vids = j.results.filter((v: any) => v?.site === "YouTube");
+    const preferred =
+      vids.find((v: any) => v.type === "Trailer" && (v.official || /official/i.test(v.name))) ??
+      vids.find((v: any) => v.type === "Trailer") ??
+      vids.find((v: any) => v.type === "Teaser") ??
+      vids[0];
+
+    return preferred?.key ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch discover results across multiple randomized pages and optionally include search results
  * for supplied keywords to increase breadth and reduce repetition.
@@ -82,19 +107,10 @@ function buildDiscoverQuery(p: DiscoverParams, opts: { page?: number; sort_by?: 
 export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: number } = { pages: 10 }) {
   if (!KEY) return [];
 
-  const requestedPages = Math.max(1, Math.min(4, opts.pages ?? 10)); // fetch up to 4 pages for breadth
-  const sorts = [
-    "popularity.desc",
-    "primary_release_date.desc",
-    "release_date.desc",
-    "vote_average.desc",
-    "revenue.desc",
-  ];
-
-  // pick sort (randomized to diversify results)
+  const requestedPages = Math.max(1, Math.min(4, opts.pages ?? 10));
+  const sorts = ["popularity.desc", "primary_release_date.desc", "release_date.desc", "vote_average.desc", "revenue.desc"];
   const sort_by = sorts[Math.floor(Math.random() * sorts.length)];
 
-  // 1) initial discover to learn total_pages (use page 1)
   const q1 = buildDiscoverQuery(parsed, { page: 1, sort_by });
   const url1 = `${TMDB_BASE}/discover/movie?${q1}`;
 
@@ -102,21 +118,18 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
     const res1 = await fetch(url1);
     if (!res1.ok) return [];
     const json1 = await res1.json();
-    const totalPages = Math.min(500, Number(json1.total_pages) || 1); // TMDb caps at 500
+    const totalPages = Math.min(500, Number(json1.total_pages) || 1);
     const resultsAcc: any[] = Array.isArray(json1.results) ? json1.results : [];
 
-    // choose additional distinct random pages (including page 1)
-    const pagesToFetch = new Set<number>();
-    pagesToFetch.add(1);
+    const pagesToFetch = new Set<number>([1]);
     while (pagesToFetch.size < Math.min(requestedPages, totalPages)) {
       pagesToFetch.add(1 + Math.floor(Math.random() * totalPages));
     }
 
-    // fetch chosen pages in parallel (skip page 1 which we already fetched)
     const otherPages = Array.from(pagesToFetch).filter((p) => p !== 1);
     const fetches = otherPages.map((p) => {
       const q = buildDiscoverQuery(parsed, { page: p, sort_by });
-      return fetch(`${TMDB_BASE}/discover/movie?${q}`).then((r) => r.ok ? r.json().catch(() => null) : null);
+      return fetch(`${TMDB_BASE}/discover/movie?${q}`).then((r) => (r.ok ? r.json().catch(() => null) : null));
     });
 
     const otherJsons = await Promise.all(fetches);
@@ -124,25 +137,43 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
       if (oj && Array.isArray(oj.results)) resultsAcc.push(...oj.results);
     }
 
-    // 2) optionally include search results for up to two top keywords to broaden coverage (keeps title/overview search)
-    if (parsed.keywords && parsed.keywords.length > 0) {
-      const kws = parsed.keywords.slice(0, 2);
-      const searchFetches = kws.map((kw) =>
-        fetch(`${TMDB_BASE}/search/movie?api_key=${KEY}&language=en-US&query=${encodeURIComponent(kw)}&page=1&include_adult=${String(Boolean(parsed.adult))}`)
-          .then((r) => r.ok ? r.json().catch(() => null) : null)
-      );
-      const searchJsons = await Promise.all(searchFetches);
-      for (const sj of searchJsons) {
-        if (sj && Array.isArray(sj.results)) resultsAcc.push(...sj.results);
-      }
-    }
+    // NOTE: removed title-based keyword search:
+    // We no longer call /search/movie with keywords. We will match keywords against overviews only.
 
-    // helper to escape regex
     const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    // 3) map, dedupe by id, compute overview keyword matches and scoring, then return sorted results
-    const seen = new Map<number, any>();
     const kwsNormalized = (parsed.keywords || []).map((k) => String(k || "").toLowerCase()).filter(Boolean);
+
+    // synonym/variant expansion for implicit matches
+    const SYNONYMS: Record<string, string[]> = {
+      love: ["romance", "romantic", "affection", "relationship"],
+      romantic: ["love", "romance", "chemistry", "relationship"],
+      funny: ["comedy", "humor", "humorous", "hilarious", "laugh"],
+      scary: ["horror", "terrifying", "frightening", "creepy", "spooky"],
+      thrill: ["thriller", "exciting", "adrenaline", "chase", "suspense", "tense", "action"],
+      action: ["thrill", "chase", "battle", "explosion", "adrenaline"],
+      slow: ["quiet", "meditative", "contemplative", "introspective"],
+      sad: ["tragic", "tearjerker", "melancholy", "heartbreaking", "poignant"],
+      mystery: ["mysterious", "whodunit", "detective", "investigation", "enigmatic"],
+      crime: ["heist", "gangster", "mafia", "police", "detective"],
+      war: ["battle", "soldier", "military", "conflict"],
+      space: ["sci-fi", "science fiction", "spaceship", "alien", "cosmos"],
+      magic: ["fantasy", "wizard", "sorcery", "mythical"],
+      family: ["kids", "children", "wholesome"],
+      cozy: ["warm", "comforting", "gentle"],
+      edgy: ["gritty", "noir", "dark"],
+      revenge: ["vengeful", "vengeance", "retaliation"],
+    };
+    const morphVariants = (w: string) => {
+      const v = new Set<string>([w]);
+      if (w.endsWith("ing")) v.add(w.slice(0, -3));
+      if (w.endsWith("ed")) v.add(w.slice(0, -2));
+      if (w.endsWith("es")) v.add(w.slice(0, -2));
+      if (w.endsWith("s")) v.add(w.slice(0, -1));
+      (SYNONYMS[w] || []).forEach((s) => v.add(s));
+      return Array.from(v);
+    };
+
+    const seen = new Map<number, any>();
 
     for (const m of resultsAcc) {
       if (!m || !m.id) continue;
@@ -151,26 +182,45 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
       const overview = (m.overview || "").toString();
       const overviewLower = overview.toLowerCase();
 
-      // compute matched keywords from overview (single-word tokens)
+      // explicit and implicit overview matching
+      let explicitCount = 0;
+      let implicitCount = 0;
       const matchedKeywords: string[] = [];
+
       for (const kw of kwsNormalized) {
-        // match whole word or as substring if short token
         const rx = new RegExp(`\\b${escapeRegExp(kw)}\\b`, "i");
-        if (rx.test(overviewLower) || overviewLower.includes(kw)) {
+        const explicit = rx.test(overviewLower);
+        if (explicit) {
+          explicitCount += 1;
+          matchedKeywords.push(kw);
+          continue;
+        }
+        const variants = morphVariants(kw);
+        let implicit = false;
+        for (const v of variants) {
+          const rxVar = new RegExp(`\\b${escapeRegExp(v)}\\b`, "i");
+          if (rxVar.test(overviewLower) || overviewLower.includes(v)) {
+            implicit = true;
+            break;
+          }
+        }
+        if (implicit) {
+          implicitCount += 1;
           matchedKeywords.push(kw);
         }
       }
 
-      // base score components
       const voteAvg = Number(m.vote_average) || 0;
       const popularity = Number(m.popularity) || 0;
-      // normalize popularity to dampen very large values
       const popScore = Math.log1p(popularity);
 
-      // overview match boost: each matched keyword gives a fixed boost (tunable)
-      const overviewBoost = matchedKeywords.length * 4;
+      // explicit hits weighted higher than implicit
+      const overviewBoost = explicitCount * 5 + implicitCount * 2;
 
-      const combinedScore = voteAvg * 10 + popScore * 2 + overviewBoost;
+      // rating bias
+      const ratingBoost = voteAvg >= 7 ? 30 : voteAvg >= 6 ? 15 : voteAvg <= 5 ? -20 : 0;
+
+      const combinedScore = voteAvg * 10 + popScore * 2 + overviewBoost + ratingBoost;
 
       seen.set(m.id, {
         id: m.id,
@@ -189,11 +239,8 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
     }
 
     let mapped = Array.from(seen.values());
-
-    // sort by combined score so overview-relevant films surface higher
     mapped.sort((a, b) => (b._combinedScore || 0) - (a._combinedScore || 0));
 
-    // optionally shuffle among items with equal/nearly-equal scores to reduce repetition
     for (let i = 0; i < mapped.length - 1; i++) {
       const a = mapped[i];
       const b = mapped[i + 1];
@@ -202,14 +249,28 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
       }
     }
 
-    // remove internal scoring key and limit total returned to a reasonable cap (e.g., 60)
     const final = mapped.slice(0, 60).map((m) => {
       const { _combinedScore, ...out } = m;
       return out;
     });
 
-    return final;
-  } catch (err) {
+    // fetch trailers for top subset and attach YouTube id
+    const fetchCount = Math.min(30, final.length);
+    const trailerPairs = await Promise.all(
+      final.slice(0, fetchCount).map(async (m) => {
+        const key = await fetchTrailerId(m.id).catch(() => null);
+        return [m.id, key] as const;
+      })
+    );
+    const trailerMap = new Map<number, string | null>(trailerPairs);
+
+    const finalWithTrailers = final.map((m) => ({
+      ...m,
+      trailer_youtube_id: trailerMap.get(m.id) ?? null,
+    }));
+
+    return finalWithTrailers;
+  } catch {
     return [];
   }
 }

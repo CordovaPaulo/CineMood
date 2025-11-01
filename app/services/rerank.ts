@@ -10,6 +10,7 @@ type Movie = {
   genre_ids?: number[];
   original_language?: string | null;
   runtime?: number | null;
+  trailer_youtube_id?: string | null; // added
 };
 
 export function rerankMovies(
@@ -37,26 +38,89 @@ export function rerankMovies(
 
   const keywords = ((parsed?.keywords || []) as string[]).map((k: string) => (k || "").toLowerCase());
 
+  // simple synonym/variant expansion to allow implicit overview matches
+  const SYNONYMS: Record<string, string[]> = {
+    love: ["romance", "romantic", "affection", "relationship"],
+    romantic: ["love", "romance", "chemistry", "relationship"],
+    funny: ["comedy", "humor", "humorous", "hilarious", "laugh"],
+    scary: ["horror", "terrifying", "frightening", "creepy", "spooky"],
+    thrill: ["thriller", "exciting", "adrenaline", "chase", "suspense", "tense", "action"],
+    action: ["thrill", "chase", "battle", "explosion", "adrenaline"],
+    slow: ["quiet", "meditative", "contemplative", "introspective"],
+    sad: ["tragic", "tearjerker", "melancholy", "heartbreaking", "poignant"],
+    mystery: ["mysterious", "whodunit", "detective", "investigation", "enigmatic"],
+    crime: ["heist", "gangster", "mafia", "police", "detective"],
+    war: ["battle", "soldier", "military", "conflict"],
+    space: ["sci-fi", "science fiction", "spaceship", "alien", "cosmos"],
+    magic: ["fantasy", "wizard", "sorcery", "mythical"],
+    family: ["kids", "children", "wholesome"],
+    cozy: ["warm", "comforting", "gentle"],
+    edgy: ["gritty", "noir", "dark"],
+    revenge: ["vengeful", "vengeance", "retaliation"],
+  };
+
+  const morphVariants = (w: string) => {
+    const v = new Set<string>([w]);
+    if (w.endsWith("ing")) v.add(w.slice(0, -3));
+    if (w.endsWith("ed")) v.add(w.slice(0, -2));
+    if (w.endsWith("es")) v.add(w.slice(0, -2));
+    if (w.endsWith("s")) v.add(w.slice(0, -1));
+    (SYNONYMS[w] || []).forEach((s) => v.add(s));
+    return Array.from(v);
+  };
+
+  function matchOverviewCounts(overview: string, kw: string) {
+    let explicit = 0;
+    let implicit = 0;
+    const ov = (overview || "").toLowerCase();
+
+    // explicit = exact word boundary match for the keyword
+    const rxExact = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (rxExact.test(ov)) explicit = 1;
+
+    // implicit = any variant/synonym/stem hit (word-boundary preferred, fallback to substring)
+    if (!explicit) {
+      const variants = morphVariants(kw);
+      for (const v of variants) {
+        const rxVar = new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        if (rxVar.test(ov) || ov.includes(v)) {
+          implicit = 1;
+          break;
+        }
+      }
+    }
+    return { explicit, implicit };
+  }
+
   function metadataScore(m: Movie) {
     let score = 0;
-    const hay = ((m.title || "") + " " + (m.overview || "")).toLowerCase();
+    const overviewOnly = (m.overview || "").toLowerCase(); // use overview only, not title
 
-    // keyword matches
+    // keyword matches (overview only)
+    let explicitHits = 0;
+    let implicitHits = 0;
     for (const k of keywords) {
       if (!k) continue;
-      if (hay.includes(k)) score += 3;
-      // partial match
-      if (k.length >= 4 && hay.includes(k.slice(0, 4))) score += 0.6;
+      const { explicit, implicit } = matchOverviewCounts(overviewOnly, k);
+      explicitHits += explicit;
+      implicitHits += implicit;
     }
+    // weight explicit > implicit
+    score += explicitHits * 3.0 + implicitHits * 1.2;
 
     // prefer popular & well-rated movies
     score += ((m.popularity || 0) / maxPop) * 2.0;
     score += (m.vote_average || 0) / 5.0;
 
+    // rating bias: favor >6, de-prioritize <=5
+    const rating = m.vote_average || 0;
+    if (rating >= 6) score += 2.0;
+    else if (rating <= 5) score -= 2.0;
+
     // parsed fields weighting (gentle nudges)
     if (parsed?.tempo) {
-      if (parsed.tempo === "fast" && /action|explosion|chase|battle/.test(hay)) score += 0.8;
-      if (parsed.tempo === "slow" && /drama|contemplative|quiet/.test(hay)) score += 0.6;
+      if (parsed.tempo === "fast" && /action|explosion|chase|battle/.test(overviewOnly)) score += 0.8;
+      if (parsed.tempo === "slow" && /drama|contemplative|quiet/.test(overviewOnly)) score += 0.6;
     }
 
     if (parsed?.language && parsed.language !== "null" && parsed.language === m.original_language) score += 0.5;
@@ -65,7 +129,6 @@ export function rerankMovies(
       if (!isNaN(year) && year >= parsed.era.from && year <= parsed.era.to) score += 0.7;
     }
 
-    // slight moodResponse penalty for "address" (prefer contrast)
     if (moodResponse === "address") score -= 0.25;
 
     return score;
@@ -107,6 +170,7 @@ export function rerankMovies(
       vote_average: m.vote_average,
       original_language: m.original_language,
       runtime: (m as any).runtime ?? null,
+      trailer_youtube_id: (m as any).trailer_youtube_id ?? null, // pass through
     };
   });
 }
