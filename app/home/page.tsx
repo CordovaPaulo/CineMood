@@ -177,7 +177,7 @@ export default function Home() {
                   <AutoAwesome sx={{ color: "#A855F7", fontSize: "1.25rem" }} />
                   <span className="text-white text-sm font-medium">Describe how you're feeling (optional)</span>
                 </div>
-                <Chip
+                {/* <Chip
                   label="Voice input supported"
                   size="small"
                   sx={{
@@ -187,7 +187,7 @@ export default function Home() {
                     fontSize: "0.75rem",
                     height: "24px",
                   }}
-                />
+                /> */}
               </div>
 
               {/* Text Input */}
