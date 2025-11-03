@@ -18,6 +18,9 @@ import { AutoAwesome } from "@mui/icons-material"
 import { Navbar } from "../../components/navbar"
 import { MoodCard } from "../../components/mood-card"
 import MoodResponse from "@/components/mood-response"
+import { toast } from "react-toastify"
+import { motion } from "framer-motion"
+import { fadeInUp, staggerContainer, fadeIn, itemTransition } from "@/lib/motion"
 
 type MoodResponseType = "match" | "address"
 
@@ -69,7 +72,8 @@ export default function Home() {
     const ok = await checkAuth()
     if (!ok) {
       setLoading(false)
-      return
+      toast.info("Please log in first to get personalized recommendations.")
+      return router.push("/")
     }
 
     console.log("Submitting recommendations with:", { selectedMood, textInput, moodResponse })
@@ -141,16 +145,21 @@ export default function Home() {
     <main className="min-h-screen bg-[#0B0B0F]">
       <Navbar />
 
-      <div className="pt-24 pb-12 px-6">
+      <motion.div
+        className="pt-24 pb-12 px-6"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+      >
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
+          <motion.div className="text-center mb-12" variants={fadeInUp}>
             <h1 className="text-5xl font-bold text-[#B549E7] mb-3">CineMood</h1>
             <p className="text-[#A0A0A0] text-lg">How are you feeling today?</p>
-          </div>
+          </motion.div>
 
           {/* Text Input with Icon and Badge */}
-          <div className="mb-12">
+          <motion.div className="mb-12" variants={fadeInUp}>
             <Box
               sx={{
                 position: "relative",
@@ -158,12 +167,8 @@ export default function Home() {
                 border: "1px solid #2D2D3D",
                 borderRadius: "1rem",
                 padding: "1rem",
-                "&:hover": {
-                  borderColor: "#A855F7",
-                },
-                "&:focus-within": {
-                  borderColor: "#A855F7",
-                },
+                "&:hover": { borderColor: "#A855F7" },
+                "&:focus-within": { borderColor: "#A855F7" },
               }}
             >
               {/* Label with Icon */}
@@ -214,19 +219,25 @@ export default function Home() {
                 }}
               />
             </Box>
-          </div>
+          </motion.div>
 
           {/* Mood Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {moods.map((mood) => (
-              <MoodCard
+            {moods.map((mood, idx) => (
+              <motion.div
                 key={mood.label}
-                emoji={mood.emoji}
-                label={mood.label}
-                description={mood.description}
-                isSelected={selectedMood === mood.label}
-                onClick={() => setSelectedMood(mood.label)}
-              />
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={itemTransition(idx)}
+              >
+                <MoodCard
+                  emoji={mood.emoji}
+                  label={mood.label}
+                  description={mood.description}
+                  isSelected={selectedMood === mood.label}
+                  onClick={() => setSelectedMood(mood.label)}
+                />
+              </motion.div>
             ))}
           </div>
 
@@ -329,13 +340,25 @@ export default function Home() {
           </Dialog>
 
           {/* Footer Text */}
-          <div className="text-center mb-8">
-            <p className="text-[#A0A0A0] text-sm">Select your mood and let AI find the perfect movies for you</p>
-          </div>
+          <motion.div
+            className="text-center mb-8"
+            initial="hidden"
+            animate="show"
+            variants={fadeIn}
+          >
+            <p className="text-[#A0A0A0] text-sm">
+              Select your mood and let AI find the perfect movies for you
+            </p>
+          </motion.div>
 
           {/* Submit Button */}
           {selectedMood && !showMoodResponse && (
-            <div className="flex justify-center">
+            <motion.div
+              className="flex justify-center"
+              variants={fadeInUp}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
               <Button
                 onClick={beginSubmit}
                 variant="contained"
@@ -354,10 +377,10 @@ export default function Home() {
               >
                 {loading ? "Finding..." : "Find Movies"}
               </Button>
-            </div>
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Full-screen loader while finding movies */}
       <Backdrop open={loading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.drawer + 1 }}>

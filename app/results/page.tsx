@@ -6,6 +6,8 @@ import { Navbar } from "../../components/navbar"
 import { MovieCard } from "../../components/movie-card"
 import { Alert, Button, Backdrop, CircularProgress } from "@mui/material"
 import { ArrowBack } from "@mui/icons-material"
+import { motion } from "framer-motion"
+import { fadeInUp, fadeIn, itemTransition } from "@/lib/motion"
 
 type Movie = {
   id: number
@@ -195,7 +197,12 @@ export default function ResultsPage() {
 
       <div className="pt-24 pb-12 px-6" style={{ opacity: isLoading ? 0.4 : 1 }}>
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
+          <motion.div
+            className="flex items-center justify-between mb-8"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="show"
+          >
             <div className="flex items-center gap-4">
               <Button
                 onClick={() => router.push("/home")}
@@ -211,9 +218,15 @@ export default function ResultsPage() {
                 Change Mood
               </Button>
             </div>
-          </div>
+          </motion.div>
+
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <motion.div
+            className="flex items-center justify-between mb-8"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="show"
+          >
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">
                 Your {selectedMood ? `${selectedMood} ` : ""}Picks
@@ -239,33 +252,48 @@ export default function ResultsPage() {
                 Refresh Picks
               </Button>
             </div>
-          </div>
+          </motion.div>
 
           {/* Movie Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
-            {!isLoading && movies && movies.length > 0 ? (
-              movies.map((movie: Movie, idx: number) => (
-                <MovieCard
+             {!isLoading && movies && movies.length > 0 ? (
+               movies.map((movie, idx) => (
+                <motion.div
                   key={movie.id ?? movie.title ?? idx}
-                  title={movie.title}
-                  posterPath={movie.poster ?? movie.posterPath ?? movie.poster_path ?? null}
-                  rating={movie.vote_average ?? movie.rating ?? null}
-                  overview={movie.overview}
-                  trailerId={movie.trailer_youtube_id ?? null}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={itemTransition(idx)}
+                >
+                   <MovieCard
+                     title={movie.title}
+                     posterPath={movie.poster ?? movie.posterPath ?? movie.poster_path ?? null}
+                     rating={movie.vote_average ?? movie.rating ?? null}
+                     overview={movie.overview}
+                     trailerId={movie.trailer_youtube_id ?? null}
+                   />
+                 </motion.div>
+               ))
+             ) : isLoading ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={itemTransition(i)}
+                  className="h-[360px] w-full rounded-xl bg-[#1A1A24] border border-[#2D2D3D]"
                 />
-              ))
-            ) : isLoading ? (
-              // simple placeholders while loading
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-[360px] w-full rounded-xl bg-[#1A1A24] border border-[#2D2D3D]" />
-              ))
-            ) : (
-              // fallback when no movies are available
-              <div className="col-span-full text-center text-[#A0A0A0]">
-                No results available. Please go back and try again.
-              </div>
-            )}
-          </div>
+               ))
+             ) : (
+              <motion.div
+                className="col-span-full text-center text-[#A0A0A0]"
+                initial="hidden"
+                animate="show"
+                variants={fadeIn}
+              >
+                 No results available. Please go back and try again.
+               </motion.div>
+             )}
+           </div>
 
           {/* Toast Notification */}
           {!isLoading && showToast && movies.length > 0 && (
