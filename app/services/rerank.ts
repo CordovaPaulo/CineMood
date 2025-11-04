@@ -20,7 +20,7 @@ export function rerankMovies(
   const { userText = "", parsed = {}, moodResponse = "match" } = opts;
   if (!movies?.length) return [];
 
-  // force maximum results returned to 5
+  // force maximum results returned to 50
   const enforcedLimit = 50;
 
   // de-duplicate by id/title
@@ -36,7 +36,27 @@ export function rerankMovies(
   const pops = unique.map((m) => m.popularity || 0);
   const maxPop = Math.max(...pops, 1);
 
-  const keywords = ((parsed?.keywords || []) as string[]).map((k: string) => (k || "").toLowerCase());
+  // derive keywords: prefer parsed.keywords, otherwise fall back to userText tokens (text-only flow)
+  const fromParsed = Array.isArray(parsed?.keywords) ? parsed.keywords : [];
+  const STOP = new Set([
+    "the","a","an","and","or","but","if","then","else","when","to","of","in","on","for","with","about","by","at","from",
+    "into","over","after","before","between","out","against","during","without","within","along","across","behind","beyond",
+    "up","down","off","above","under","again","further","than","once","here","there","all","any","both","each","few","more",
+    "most","other","some","such","no","nor","not","only","own","same","so","too","very","can","will","just","don","should","now",
+    "is","are","am","was","were","be","been","being","i","me","my","we","our","you","your","they","them","their","it","its"
+  ]);
+  const fromUserText =
+    !fromParsed?.length && userText
+      ? Array.from(
+          new Set(
+            (userText.toLowerCase().match(/[a-z]{4,}/g) || [])
+              .filter((w) => !STOP.has(w))
+              .slice(0, 10)
+          )
+        )
+      : [];
+
+  const keywords = [...(fromParsed || []), ...fromUserText].map((k: string) => (k || "").toLowerCase());
 
   // simple synonym/variant expansion to allow implicit overview matches
   const SYNONYMS: Record<string, string[]> = {

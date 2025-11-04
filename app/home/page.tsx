@@ -56,18 +56,26 @@ export default function Home() {
   }
 
   const beginSubmit = () => {
-    // Trigger showing the mood-response selector if not yet chosen.
-    if (!selectedMood) return
+    const hasInput = !!selectedMood || !!textInput.trim()
+    if (!hasInput) {
+      toast.info("Please select a mood or enter a description to find movies.")
+      return
+    }
     if (!moodResponse) {
       setShowMoodResponse(true)
       return
     }
-    // if moodResponse already set, call final submit
     submitRecommendations()
   }
 
   const submitRecommendations = async () => {
-    if (!selectedMood) return
+    // require either mood or text, and always require moodResponse
+    const hasInput = !!selectedMood || !!textInput.trim()
+    if (!hasInput) return
+    if (!moodResponse) {
+      setShowMoodResponse(true)
+      return
+    }
     setLoading(true)
     const ok = await checkAuth()
     if (!ok) {
@@ -81,7 +89,8 @@ export default function Home() {
       const res = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textInput, mood: selectedMood, moodResponse: moodResponse }),
+        // send empty string for mood/moodResponse when not provided
+        body: JSON.stringify({ text: textInput, mood: selectedMood || "", moodResponse: moodResponse || "" }),
       })
 
       const contentType = (res.headers.get("content-type") || "").toLowerCase()
@@ -110,7 +119,7 @@ export default function Home() {
 
       // also save parsed params and selections
       sessionStorage.setItem("parsedParams", JSON.stringify(payload.parsed || {}))
-      sessionStorage.setItem("selectedMood", selectedMood)
+      sessionStorage.setItem("selectedMood", selectedMood || "")
       sessionStorage.setItem("moodResponse", moodResponse || "")
 
       // sample 5 to show immediately (transient "props" for results page)
@@ -218,6 +227,11 @@ export default function Home() {
                   },
                 }}
               />
+              <div style={{ marginTop: 8 }}>
+                <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
+                  You can also find movies using only text — we’ll still ask how they should relate to your mood.
+                </p>
+              </div>
             </Box>
           </motion.div>
 
@@ -352,7 +366,7 @@ export default function Home() {
           </motion.div>
 
           {/* Submit Button */}
-          {selectedMood && !showMoodResponse && (
+          {(selectedMood || textInput.trim()) && !showMoodResponse && (
             <motion.div
               className="flex justify-center"
               variants={fadeInUp}

@@ -21,7 +21,9 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => { // make async
     e.preventDefault()
     if(!username) { toast.error("Please enter your name."); return }
-    if (!validateEmail(email)) { toast.error("Please enter a valid email address."); return }
+    if(!email) { toast.error("Please enter your email address."); return }
+    if(!password) { toast.error("Please enter your password."); return }
+    if (!validateEmail(email)) { toast.error("Please enter a valid email address format."); return }
     if (!validatePassword(password)) {
       toast.error("Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.")
       return

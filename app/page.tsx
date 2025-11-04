@@ -31,7 +31,7 @@ export default function LoginPage() {
       } else if (res.status === 404) {
         toast.error("User not found.")
       } else if (res.status === 401) {
-        toast.error("Invalid credentials.")
+        toast.error("Invalid Email or Password.")
       } else {
         toast.error("Login failed. Please try again.")
       }

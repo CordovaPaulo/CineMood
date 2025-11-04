@@ -39,6 +39,49 @@ const MOOD_KEYWORD_HINTS: Record<string, { match: string[]; address: string[] }>
   Edgy: { match: ["gritty","raw","provocative","noir"], address: ["cheerful","light","comedy","wholesome"] },
 };
 
+// +++ NEW: lightweight tone → mood inference to guide hints when user didn't pick a mood +++
+const TEXT_TONE_TO_MOOD: Array<{ key: string; mood: keyof typeof MOOD_BRIDGE }> = [
+  { key: "sad", mood: "Sad" },
+  { key: "down", mood: "Sad" },
+  { key: "blue", mood: "Sad" },
+  { key: "depressed", mood: "Sad" },
+  { key: "angry", mood: "Angry" },
+  { key: "mad", mood: "Angry" },
+  { key: "frustrated", mood: "Angry" },
+  { key: "furious", mood: "Angry" },
+  { key: "scared", mood: "Scared" },
+  { key: "afraid", mood: "Scared" },
+  { key: "anxious", mood: "Scared" },
+  { key: "tense", mood: "Scared" },
+  { key: "excited", mood: "Excited" },
+  { key: "thrilled", mood: "Excited" },
+  { key: "pumped", mood: "Excited" },
+  { key: "happy", mood: "Happy" },
+  { key: "joyful", mood: "Happy" },
+  { key: "cheerful", mood: "Happy" },
+  { key: "relaxed", mood: "Relaxed" },
+  { key: "calm", mood: "Relaxed" },
+  { key: "chill", mood: "Relaxed" },
+  { key: "nostalgic", mood: "Nostalgic" },
+  { key: "romantic", mood: "Romantic" },
+  { key: "in love", mood: "Romantic" },
+  { key: "cozy", mood: "Cozy" },
+  { key: "wholesome", mood: "Wholesome" },
+  { key: "curious", mood: "Curious" },
+  { key: "adventurous", mood: "Adventurous" },
+  { key: "mysterious", mood: "Mysterious" },
+  { key: "edgy", mood: "Edgy" },
+];
+
+function inferMoodFromText(text: string): keyof typeof MOOD_BRIDGE | undefined {
+  const t = (text || "").toLowerCase();
+  // prefer the first match in order (rough heuristic)
+  for (const { key, mood } of TEXT_TONE_TO_MOOD) {
+    if (t.includes(key)) return mood;
+  }
+  return undefined;
+}
+
 function extractJson(text: string): any {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   let candidate = (fenced ? fenced[1] : text).trim();
@@ -271,14 +314,14 @@ MoodResponse: "${moodResponse}"
 
 ReferenceMoodGuide: ${compactGuide}
 
-Top-level intent (highest priority):
-1) Anchor to the InputText: prefer exact words/phrases from InputText for keywords (1-3 words). If a phrase appears verbatim, include it as a keyword. Do not invent long keywords.
-2) Genres vs keywords: genres are canonical, short labels (e.g. "Drama", "Comedy"); keywords are short, input-derived phrases (1-3 words). Use genres to categorize broadly, keywords to capture user-provided anchors.
-3) Mood as limiter/validator:
-   - If MoodResponse is "match": select genres and keywords that align with the Mood and the InputText. Favor matches from the ReferenceMoodGuide when helpful, but prioritize InputText.
-   - If MoodResponse is "address": choose genres and keywords that counteract or contrast the Mood/InputText (use opposites or historically mood-shifting genres from the ReferenceMoodGuide). Avoid repeating direct mood synonyms.
-4) Minimalism & non-determinism: include only applicable fields; keep arrays small (keywords 1-6, genres 0-4). Introduce small, valid variations between calls: reorder arrays, swap a single synonym, or include a single alternative keyword.
-5) Final formatting (strict): Output only JSON. Allowed keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse. AdditionalProperties: false.
+Rules:
+- If Mood is empty, ignore mood alignment unless you can infer a tone from InputText.
+- If MoodResponse is "address" with no Mood, interpret "address" as counterbalancing the emotional tone detectable in InputText (e.g., if text feels sad, suggest uplifting genres); otherwise pick broadly mood-elevating/complementary options.
+- Always prioritize exact words/short phrases from InputText for keywords (1–3 words). Do not invent long keywords.
+- Genres are canonical labels (e.g., "Drama", "Comedy"); keywords capture user anchors.
+- Keep output minimal and valid. Arrays small (keywords 1–6, genres 0–4) with minor non-deterministic ordering.
+
+Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse. No other keys.
 `;
 
   const schema = {
@@ -320,7 +363,9 @@ Top-level intent (highest priority):
   // ensure parsed is an object
   parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match" };
 
-  parsed.moodResponse = parsed.moodResponse === "address" ? "address" : "match";
+  // +++ CHANGE: force the user's requested moodResponse to be respected +++
+  const requestedMoodResponse = moodResponse === "address" ? "address" : "match";
+  parsed.moodResponse = requestedMoodResponse;
 
   const genresArr = coerceToStringArray(parsed.genres);
   const keywordsArr = coerceToStringArray(parsed.keywords);
@@ -331,10 +376,14 @@ Top-level intent (highest priority):
     singleKeywords = extractKeywordsFromText(safeText, 8);
   }
 
+  // +++ NEW: infer mood from text if user didn't provide one +++
+  const inferredMood = mood ? undefined : inferMoodFromText(safeText);
+  const moodForHints = mood || inferredMood;
+
   const keepMood = explicitKeepMood(safeText, mood);
 
-  if (mood && !keepMood) {
-    const moodKey = Object.keys(MOOD_KEYWORD_HINTS).find((k) => k.toLowerCase() === mood.toLowerCase());
+  if (moodForHints && !keepMood) {
+    const moodKey = Object.keys(MOOD_KEYWORD_HINTS).find((k) => k.toLowerCase() === moodForHints.toLowerCase());
     const hints = moodKey ? MOOD_KEYWORD_HINTS[moodKey] : null;
 
     if (parsed.moodResponse === "match" && hints?.match?.length) {
@@ -347,10 +396,8 @@ Top-level intent (highest priority):
         if (present.size >= need + singleKeywords.length) break;
       }
     } else if (parsed.moodResponse === "address" && hints?.address?.length) {
-      // remove direct mood synonyms (e.g., "sad") and inject counteracting hints
-      const moodLower = mood.toLowerCase();
+      const moodLower = (moodForHints || "").toLowerCase();
       singleKeywords = singleKeywords.filter((k) => k.toLowerCase() !== moodLower);
-      // drop any tokens that are too close to mood labels
       for (const h of hints.address) {
         if (!singleKeywords.includes(h)) singleKeywords.unshift(h);
         if (singleKeywords.length >= 8) break;
@@ -368,8 +415,8 @@ Top-level intent (highest priority):
   let finalGenres: string[] = [];
   if (Array.isArray(genresArr) && genresArr.length > 0) {
     finalGenres = genresArr.slice(0, 4).map((g) => (g || "").trim()).filter(Boolean);
-  } else if (mood) {
-    const hint = MOOD_BRIDGE[mood];
+  } else if (moodForHints) {
+    const hint = MOOD_BRIDGE[moodForHints];
     if (hint) {
       const pick = parsed.moodResponse === "address" ? hint.address : hint.match;
       finalGenres = (pick || []).slice(0, 4);
@@ -397,17 +444,15 @@ Top-level intent (highest priority):
     } else if (typeof v === "number") {
       parsed.adult = Boolean(v);
     } else {
-      // unknown value — remove to avoid breaking downstream consumers
       delete parsed.adult;
     }
   }
 
   // Safety: if moodResponse === "address" and the model returned genres that are exact synonyms of the Mood label,
-  // prefer to remove direct synonyms so the result better counteracts the mood. (Only remove exact single-word matches.)
+  // prefer to remove direct synonyms so the result better counteracts the mood.
   if (parsed.moodResponse === "address" && Array.isArray(parsed.genres)) {
-    const moodLower = (mood || "").toLowerCase();
+    const moodLower = (moodForHints || "").toLowerCase();
     parsed.genres = (parsed.genres as string[]).filter((g) => g.toLowerCase() !== moodLower);
-    // still keep array (may be empty) — caller expects an array
     parsed.genres = parsed.genres || [];
   }
 

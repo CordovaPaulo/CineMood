@@ -18,6 +18,7 @@ type DiscoverParams = {
   language?: string | null;
   adult?: boolean;
   tempo?: string | null;
+  // moodResponse?: "match" | "address" | null; // optional; not required
 };
 
 const GENRE_NAME_TO_ID: Record<string, number> = {
@@ -141,7 +142,9 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
     // We no longer call /search/movie with keywords. We will match keywords against overviews only.
 
     const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const kwsNormalized = (parsed.keywords || []).map((k) => String(k || "").toLowerCase()).filter(Boolean);
+    const kwsNormalized = Array.isArray(parsed?.keywords)
+      ? (parsed.keywords as string[]).map((k) => String(k || "").toLowerCase()).filter(Boolean)
+      : [];
 
     // synonym/variant expansion for implicit matches
     const SYNONYMS: Record<string, string[]> = {

@@ -24,6 +24,7 @@ type Movie = {
 export default function ResultsPage() {
   const router = useRouter()
   const [selectedMood, setSelectedMood] = useState<string>("")
+  const [moodResponse, setMoodResponse] = useState<"match" | "address" | null>(null)
   const [showToast, setShowToast] = useState(true)
   const [movies, setMovies] = useState<Movie[]>([])
   const [allResults, setAllResults] = useState<Movie[]>([])
@@ -50,18 +51,17 @@ export default function ResultsPage() {
     const init = () => {
       setIsLoading(true)
 
-      // mood guard/restore
+      // restore optional mood (may be empty for text-only queries)
       try {
-        const mood = sessionStorage.getItem("selectedMood")
-        if (!mood) {
-          router.push("/home")
-          return
-        } else {
-          if (mounted) setSelectedMood(mood)
-        }
-      } catch {
-        // if sessionStorage fails, still continue
-      }
+        const mood = sessionStorage.getItem("selectedMood") || ""
+        if (mounted) setSelectedMood(mood)
+      } catch {}
+
+      // restore optional moodResponse and parsed params for context-only display if needed
+      try {
+        const mr = sessionStorage.getItem("moodResponse") as "match" | "address" | null
+        if (mounted) setMoodResponse(mr)
+      } catch {}
 
       // transient in-memory results (preferred)
       const w = typeof window !== "undefined" ? (window as any) : undefined
@@ -185,6 +185,13 @@ export default function ResultsPage() {
     }
   }, [isLoading, movies])
 
+  // Subtitle adapts when no mood is selected (text-only flow)
+  const subtitle = selectedMood
+    ? (moodDescriptions[selectedMood] || "Movies tailored for your vibe")
+    : moodResponse === "address"
+    ? "Based on your description — to help shift your mood"
+    : "Based on your description"
+
   return (
     <main className="min-h-screen bg-[#0B0B0F]">
       <Navbar />
@@ -231,11 +238,9 @@ export default function ResultsPage() {
               <h1 className="text-2xl md:text-3xl font-bold text-white">
                 Your {selectedMood ? `${selectedMood} ` : ""}Picks
               </h1>
-              {selectedMood && (
-                <p className="text-[#A0A0A0] text-sm">
-                  {moodDescriptions[selectedMood] || "Movies tailored for your vibe"}
-                </p>
-              )}
+              <p className="text-[#A0A0A0] text-sm">
+                {subtitle}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <Button
@@ -309,7 +314,7 @@ export default function ResultsPage() {
                   "& .MuiAlert-icon": { color: "#A855F7" },
                 }}
               >
-                Movies loaded! Found {movies?.length ?? 0} picks for your {selectedMood} mood
+                Movies loaded! Found {movies?.length ?? 0} picks {selectedMood ? `for your ${selectedMood} mood` : "based on your description"}
               </Alert>
             </div>
           )}
