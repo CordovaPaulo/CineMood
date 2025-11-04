@@ -6,7 +6,6 @@ import {
   Button,
   TextField,
   Box,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,9 +17,11 @@ import { AutoAwesome } from "@mui/icons-material"
 import { Navbar } from "../../components/navbar"
 import { MoodCard } from "../../components/mood-card"
 import MoodResponse from "@/components/mood-response"
+import OfflineBanner from "../../components/offline-banner"
 import { toast } from "react-toastify"
 import { motion } from "framer-motion"
 import { fadeInUp, staggerContainer, fadeIn, itemTransition } from "@/lib/motion"
+import { verifyClientConnectivity, isNavigatorOnline } from "@/lib/network"
 
 type MoodResponseType = "match" | "address"
 
@@ -44,17 +45,6 @@ export default function Home() {
   const [showMoodResponse, setShowMoodResponse] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  async function checkAuth() {
-    try {
-      const res = await fetch("/api/auth/", { method: "GET" })
-      // if server returns non-JSON HTML (error page), don't attempt to parse it
-      if (!res.ok) return false
-      return true
-    } catch {
-      return false
-    }
-  }
-
   const beginSubmit = () => {
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) {
@@ -68,28 +58,40 @@ export default function Home() {
     submitRecommendations()
   }
 
-  const submitRecommendations = async () => {
-    // require either mood or text, and always require moodResponse
+  async function submitRecommendations() {
+    // Require either mood or text and moodResponse
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) return
     if (!moodResponse) {
       setShowMoodResponse(true)
       return
     }
-    setLoading(true)
-    const ok = await checkAuth()
-    if (!ok) {
-      setLoading(false)
-      toast.info("Please log in first to get personalized recommendations.")
-      return router.push("/")
+
+    // Fast offline check + backend ping
+    const connectivity = await verifyClientConnectivity()
+    if (connectivity === "offline") {
+      toast.error("You’re offline. Reconnect to find new movies.")
+      return
+    }
+    if (connectivity === "backend-down") {
+      toast.error("Service is unavailable right now. Please try again shortly.")
+      return
     }
 
-    console.log("Submitting recommendations with:", { selectedMood, textInput, moodResponse })
+    setLoading(true)
+
     try {
+      // Optional: quick auth check (will fail fast if backend is down)
+      const auth = await fetch("/api/auth/", { method: "GET" })
+      if (!auth.ok) {
+        setLoading(false)
+        toast.info("Please log in first to get personalized recommendations.")
+        return router.push("/")
+      }
+
       const res = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // send empty string for mood/moodResponse when not provided
         body: JSON.stringify({ text: textInput, mood: selectedMood || "", moodResponse: moodResponse || "" }),
       })
 
@@ -102,11 +104,16 @@ export default function Home() {
         payload = { error: "non-json response", text }
       }
 
-      // Log parsed inputs returned by the recommendations API for debugging
-      console.log("API parsed params:", payload.parsed ?? payload)
-
       if (!res.ok) {
-        console.error("Failed to fetch recommendations:", payload)
+        if (res.status === 503) {
+          toast.error("Recommendations service is temporarily unavailable. Please try again later.")
+        } else if (res.status === 502) {
+          toast.error("Upstream provider error. Please retry in a moment.")
+        } else if (res.status === 429) {
+          toast.error("Too many requests. Please wait a bit and try again.")
+        } else {
+          toast.error(payload?.message || "Failed to fetch recommendations.")
+        }
         setLoading(false)
         return
       }
@@ -117,12 +124,10 @@ export default function Home() {
         sessionStorage.setItem("recommendations_all", JSON.stringify(fullResults))
       } catch {}
 
-      // also save parsed params and selections
       sessionStorage.setItem("parsedParams", JSON.stringify(payload.parsed || {}))
       sessionStorage.setItem("selectedMood", selectedMood || "")
       sessionStorage.setItem("moodResponse", moodResponse || "")
 
-      // sample 5 to show immediately (transient "props" for results page)
       const sample = (() => {
         const out: any[] = []
         const src = Array.isArray(fullResults) ? fullResults.slice() : []
@@ -135,7 +140,6 @@ export default function Home() {
         return out
       })()
 
-      // transiently pass sampled results to the results page via a global (used as "props" at mount)
       try {
         ;(window as any).__CINEMOOD_RESULTS__ = sample
         ;(window as any).__CINEMOOD_RESULTS_ALL__ = fullResults
@@ -143,7 +147,13 @@ export default function Home() {
       } catch {}
 
       router.push("/results")
-    } catch (error) {
+    } catch (error: any) {
+      // Covers blocked requests (adblock/CORS) or genuine network errors
+      if (!isNavigatorOnline()) {
+        toast.error("You went offline. Please reconnect and try again.")
+      } else {
+        toast.error("Request was blocked or failed due to a network error.")
+      }
       console.error("Error occurred while fetching recommendations:", error)
     } finally {
       setLoading(false)
@@ -153,6 +163,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#0B0B0F]">
       <Navbar />
+      <OfflineBanner />
 
       <motion.div
         className="pt-24 pb-12 px-6"

@@ -4,6 +4,8 @@
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const KEY = process.env.TMDB_API_KEY;
 
+import { safeFetch, HttpError } from "./http"
+
 if (!KEY) {
   // keep silent in dev; runtime will fail if key missing when used
   // console.warn("TMDB_API_KEY not set");
@@ -51,9 +53,38 @@ function genresToIds(genres?: string[]) {
   return ids.length ? ids.join(",") : null;
 }
 
-function buildDiscoverQuery(p: DiscoverParams, opts: { page?: number; sort_by?: string } = {}) {
+// Small helper that wraps TMDB GET with timeout + normalized errors
+async function tmdbGet<T = any>(
+  path: string,
+  params?: Record<string, any>,
+  timeoutMs = 7000
+): Promise<T> {
+  const apiKey = KEY
+  if (!apiKey) {
+    throw new HttpError("TMDB API key missing", { code: "CONFIG", status: 500 })
+  }
+  const url = new URL(`${TMDB_BASE}/${path.replace(/^\/+/, "")}`)
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
+    })
+  }
+  url.searchParams.set("api_key", String(apiKey))
+
+  const res = await safeFetch(url.toString(), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    timeoutMs,
+  })
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new HttpError("Invalid TMDB response", { code: "HTTP_ERROR", status: 502 })
+  }
+}
+
+function buildDiscoverParams(p: DiscoverParams, opts: { page?: number; sort_by?: string } = {}) {
   const qp: Record<string, string> = {
-    api_key: KEY ?? "",
     sort_by: opts.sort_by ?? "popularity.desc",
     include_adult: String(Boolean(p.adult)),
     language: "en-US",
@@ -75,17 +106,14 @@ function buildDiscoverQuery(p: DiscoverParams, opts: { page?: number; sort_by?: 
   if (p.era?.from) qp["primary_release_date.gte"] = `${p.era.from}-01-01`;
   if (p.era?.to) qp["primary_release_date.lte"] = `${p.era.to}-12-31`;
 
-  return new URLSearchParams(qp).toString();
+  return qp;
 }
 
 // fetch the best YouTube trailer id (key) for a movie
 async function fetchTrailerId(movieId: number): Promise<string | null> {
   if (!KEY) return null;
   try {
-    const url = `${TMDB_BASE}/movie/${movieId}/videos?api_key=${KEY}&language=en-US`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const j = await res.json().catch(() => null);
+    const j = await tmdbGet<{ results?: any[] }>(`movie/${movieId}/videos`, { language: "en-US" }, 6000)
     if (!j || !Array.isArray(j.results)) return null;
 
     const vids = j.results.filter((v: any) => v?.site === "YouTube");
@@ -112,15 +140,12 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
   const sorts = ["popularity.desc", "primary_release_date.desc", "release_date.desc", "vote_average.desc", "revenue.desc"];
   const sort_by = sorts[Math.floor(Math.random() * sorts.length)];
 
-  const q1 = buildDiscoverQuery(parsed, { page: 1, sort_by });
-  const url1 = `${TMDB_BASE}/discover/movie?${q1}`;
-
   try {
-    const res1 = await fetch(url1);
-    if (!res1.ok) return [];
-    const json1 = await res1.json();
-    const totalPages = Math.min(500, Number(json1.total_pages) || 1);
-    const resultsAcc: any[] = Array.isArray(json1.results) ? json1.results : [];
+    const paramsPage1 = buildDiscoverParams(parsed, { page: 1, sort_by });
+    const json1 = await tmdbGet<any>("discover/movie", paramsPage1);
+
+    const totalPages = Math.min(500, Number(json1?.total_pages) || 1);
+    const resultsAcc: any[] = Array.isArray(json1?.results) ? json1.results : [];
 
     const pagesToFetch = new Set<number>([1]);
     while (pagesToFetch.size < Math.min(requestedPages, totalPages)) {
@@ -128,12 +153,13 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
     }
 
     const otherPages = Array.from(pagesToFetch).filter((p) => p !== 1);
-    const fetches = otherPages.map((p) => {
-      const q = buildDiscoverQuery(parsed, { page: p, sort_by });
-      return fetch(`${TMDB_BASE}/discover/movie?${q}`).then((r) => (r.ok ? r.json().catch(() => null) : null));
-    });
+    const otherJsons = await Promise.all(
+      otherPages.map((p) => {
+        const q = buildDiscoverParams(parsed, { page: p, sort_by });
+        return tmdbGet<any>("discover/movie", q).catch(() => null);
+      })
+    );
 
-    const otherJsons = await Promise.all(fetches);
     for (const oj of otherJsons) {
       if (oj && Array.isArray(oj.results)) resultsAcc.push(...oj.results);
     }

@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { discoverMovies } from "../../services/tmdb";
 import { rerankMovies } from "../../services/rerank";
 import { parseUserInput } from "@/services/gemini";
+import { HttpError } from "@/app/services/http";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({} as any));
     const { text = "", mood = "", moodResponse = "match" } = body;
@@ -62,7 +63,33 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     );
-  } catch (err) {
-    return NextResponse.json({ error: "recommendations failed", detail: String(err) }, { status: 500 });
+  } catch (err: any) {
+    console.error("Recommendations error:", err);
+
+    if (err instanceof HttpError) {
+      if (err.code === "TIMEOUT") {
+        return NextResponse.json(
+          { message: "Service timed out. Please try again.", code: "TIMEOUT" },
+          { status: 503, headers: { "Retry-After": "5" } }
+        );
+      }
+      if (err.code === "NETWORK_ERROR") {
+        return NextResponse.json(
+          { message: "Upstream request blocked or failed.", code: "NETWORK_ERROR" },
+          { status: 502 }
+        );
+      }
+      if (typeof err.status === "number") {
+        return NextResponse.json(
+          { message: "Upstream error", code: "UPSTREAM_ERROR", details: err.data },
+          { status: Math.min(599, Math.max(400, err.status)) }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { message: "Unexpected server error.", code: "UNKNOWN" },
+      { status: 500 }
+    );
   }
 }

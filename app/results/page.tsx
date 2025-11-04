@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "../../components/navbar"
+import OfflineBanner from "../../components/offline-banner"
 import { MovieCard } from "../../components/movie-card"
 import { Alert, Button, Backdrop, CircularProgress } from "@mui/material"
 import { ArrowBack } from "@mui/icons-material"
 import { motion } from "framer-motion"
 import { fadeInUp, fadeIn, itemTransition } from "@/lib/motion"
+import { isNavigatorOnline } from "@/lib/network"
 
 type Movie = {
   id: number
@@ -159,6 +161,12 @@ export default function ResultsPage() {
   )
 
   const handleRefresh = () => {
+    if (!isNavigatorOnline()) {
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 2500)
+      alert("You’re offline. Reconnect to refresh picks.")
+      return
+    }
     // Prefer in-memory allResults; otherwise read from sessionStorage
     let pool: Movie[] | undefined = Array.isArray(allResults) && allResults.length > 0 ? allResults.slice() : undefined
     if (!pool || pool.length === 0) {
@@ -178,6 +186,14 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
+    // If user lands here offline, we’ll prefer cached results and show info once
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 3000)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isLoading && movies.length > 0) {
       setShowToast(true)
       const t = setTimeout(() => setShowToast(false), 3000)
@@ -195,6 +211,7 @@ export default function ResultsPage() {
   return (
     <main className="min-h-screen bg-[#0B0B0F]">
       <Navbar />
+      <OfflineBanner />
 
       {/* Global loader overlay while preparing results */}
       <Backdrop open={isLoading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.drawer + 1 }}>
