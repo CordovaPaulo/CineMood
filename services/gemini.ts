@@ -317,11 +317,12 @@ ReferenceMoodGuide: ${compactGuide}
 Rules:
 - If Mood is empty, ignore mood alignment unless you can infer a tone from InputText.
 - If MoodResponse is "address" with no Mood, interpret "address" as counterbalancing the emotional tone detectable in InputText (e.g., if text feels sad, suggest uplifting genres); otherwise pick broadly mood-elevating/complementary options.
-- Always prioritize exact words/short phrases from InputText for keywords (1–3 words). Do not invent long keywords.
+- Always prioritize exact words/short phrases from InputText for keywords (1–6 words). Do not invent long keywords.
 - Genres are canonical labels (e.g., "Drama", "Comedy"); keywords capture user anchors.
+- If the InputText is too vague or non-descriptive (short filler words, single-word affirmative replies, or otherwise lacking specific anchors), set "ambiguous": true in the JSON and return minimal/empty arrays for genres/keywords. Do not rely on a fixed built-in list of ambiguous tokens; decide ambiguity based on the informativeness of the input.
 - Keep output minimal and valid. Arrays small (keywords 1–6, genres 0–4) with minor non-deterministic ordering.
 
-Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse. No other keys.
+Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse, ambiguous. No other keys.
 `;
 
   const schema = {
@@ -342,6 +343,7 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
       language: { type: ["string", "null"] },
       adult: { type: "boolean" },
       moodResponse: { type: "string", enum: ["match", "address"] },
+      ambiguous: { type: "boolean" },
     },
     additionalProperties: false,
   };
@@ -356,16 +358,19 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
       parsed = await parseContents(prompt);
     } catch (errLoose) {
       // If both fail, return a minimal heuristic parse so callers keep working.
-      parsed = { moodResponse: moodResponse === "address" ? "address" : "match" };
+      parsed = { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
     }
   }
 
   // ensure parsed is an object
-  parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match" };
+  parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
 
   // +++ CHANGE: force the user's requested moodResponse to be respected +++
   const requestedMoodResponse = moodResponse === "address" ? "address" : "match";
   parsed.moodResponse = requestedMoodResponse;
+
+  // Coerce ambiguous to boolean if present; default false
+  parsed.ambiguous = Boolean(parsed.ambiguous === true);
 
   const genresArr = coerceToStringArray(parsed.genres);
   const keywordsArr = coerceToStringArray(parsed.keywords);
@@ -381,6 +386,15 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
   const moodForHints = mood || inferredMood;
 
   const keepMood = explicitKeepMood(safeText, mood);
+
+  // If the model marked the input ambiguous, clear keywords/genres to signal caller to ask for clarification
+  if (parsed.ambiguous) {
+    parsed.keywords = [];
+    parsed.genres = [];
+    // still preserve moodResponse and adult flags, but avoid injecting hint tokens
+    parsed.moodResponse = requestedMoodResponse;
+    return parsed;
+  }
 
   if (moodForHints && !keepMood) {
     const moodKey = Object.keys(MOOD_KEYWORD_HINTS).find((k) => k.toLowerCase() === moodForHints.toLowerCase());

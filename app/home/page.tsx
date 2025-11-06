@@ -37,6 +37,44 @@ const moods = [
   { emoji: "🔍", label: "Mysterious", description: "Intriguing & puzzling" },
 ]
 
+// Helper function to infer mood from text
+function inferMoodFromText(text: string): string | null {
+  const TEXT_TONE_TO_MOOD: Array<{ key: string; mood: string }> = [
+    { key: "sad", mood: "Sad" },
+    { key: "down", mood: "Sad" },
+    { key: "blue", mood: "Sad" },
+    { key: "depressed", mood: "Sad" },
+    { key: "angry", mood: "Angry" },
+    { key: "mad", mood: "Angry" },
+    { key: "frustrated", mood: "Angry" },
+    { key: "furious", mood: "Angry" },
+    { key: "scared", mood: "Scared" },
+    { key: "afraid", mood: "Scared" },
+    { key: "anxious", mood: "Scared" },
+    { key: "tense", mood: "Scared" },
+    { key: "excited", mood: "Excited" },
+    { key: "thrilled", mood: "Excited" },
+    { key: "pumped", mood: "Excited" },
+    { key: "happy", mood: "Happy" },
+    { key: "joyful", mood: "Happy" },
+    { key: "cheerful", mood: "Happy" },
+    { key: "relaxed", mood: "Relaxed" },
+    { key: "calm", mood: "Relaxed" },
+    { key: "chill", mood: "Relaxed" },
+    { key: "nostalgic", mood: "Mysterious" },
+    { key: "romantic", mood: "Romantic" },
+    { key: "in love", mood: "Romantic" },
+    { key: "adventurous", mood: "Adventurous" },
+    { key: "mysterious", mood: "Mysterious" },
+  ];
+
+  const t = (text || "").toLowerCase();
+  for (const { key, mood } of TEXT_TONE_TO_MOOD) {
+    if (t.includes(key)) return mood;
+  }
+  return null;
+}
+
 export default function Home() {
   const router = useRouter()
   const [selectedMood, setSelectedMood] = useState<string | null>(null)
@@ -45,6 +83,7 @@ export default function Home() {
   const [showMoodResponse, setShowMoodResponse] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // replace beginSubmit to defer ambiguity detection to Gemini
   const beginSubmit = () => {
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) {
@@ -59,7 +98,6 @@ export default function Home() {
   }
 
   async function submitRecommendations() {
-    // Require either mood or text and moodResponse
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) return
     if (!moodResponse) {
@@ -67,10 +105,9 @@ export default function Home() {
       return
     }
 
-    // Fast offline check + backend ping
     const connectivity = await verifyClientConnectivity()
     if (connectivity === "offline") {
-      toast.error("You’re offline. Reconnect to find new movies.")
+      toast.error("You're offline. Reconnect to find new movies.")
       return
     }
     if (connectivity === "backend-down") {
@@ -81,7 +118,6 @@ export default function Home() {
     setLoading(true)
 
     try {
-      // Optional: quick auth check (will fail fast if backend is down)
       const auth = await fetch("/api/auth/", { method: "GET" })
       if (!auth.ok) {
         setLoading(false)
@@ -104,6 +140,13 @@ export default function Home() {
         payload = { error: "non-json response", text }
       }
 
+      // NEW: respect Gemini's ambiguity decision
+      if (payload?.parsed?.ambiguous) {
+        toast.error("Mood unclear — please be more specific in your description.")
+        setLoading(false)
+        return
+      }
+
       if (!res.ok) {
         if (res.status === 503) {
           toast.error("Recommendations service is temporarily unavailable. Please try again later.")
@@ -118,20 +161,28 @@ export default function Home() {
         return
       }
 
-      // persist full results for refresh / fallback
       const fullResults = payload.results || []
       try {
         sessionStorage.setItem("recommendations_all", JSON.stringify(fullResults))
       } catch {}
 
-      sessionStorage.setItem("parsedParams", JSON.stringify(payload.parsed || {}))
-      sessionStorage.setItem("selectedMood", selectedMood || "")
+      // Determine the effective mood to display
+      let effectiveMood = selectedMood || inferMoodFromText(textInput) || ""
+      
+      // If moodResponse is "address", modify the mood display
+      if (moodResponse === "address" && effectiveMood) {
+        // Store both the original and the addressing mood
+        sessionStorage.setItem("originalMood", effectiveMood)
+        sessionStorage.setItem("addressingMood", "true")
+      }
+
+      sessionStorage.setItem("parsedData", JSON.stringify(payload.parsed || {}))
+      sessionStorage.setItem("selectedMood", effectiveMood)
       sessionStorage.setItem("moodResponse", moodResponse || "")
 
       const sample = (() => {
         const out: any[] = []
         const src = Array.isArray(fullResults) ? fullResults.slice() : []
-        // shuffle src (Fisher-Yates)
         for (let i = src.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1))
           ;[src[i], src[j]] = [src[j], src[i]]
@@ -148,7 +199,6 @@ export default function Home() {
 
       router.push("/results")
     } catch (error: any) {
-      // Covers blocked requests (adblock/CORS) or genuine network errors
       if (!isNavigatorOnline()) {
         toast.error("You went offline. Please reconnect and try again.")
       } else {
@@ -215,6 +265,7 @@ export default function Home() {
                 fullWidth
                 multiline
                 rows={3}
+                // limit={50} 
                 placeholder="E.g., I want something uplifting but not too cheesy, or I'm feeling nostalgic about the 90s..."
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}

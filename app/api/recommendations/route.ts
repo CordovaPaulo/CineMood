@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         language: null,
         adult: false,
         moodResponse: normalizedMoodResponse,
+        ambiguous: false,
       };
     } else {
       // normalize to expected shapes
@@ -40,10 +41,46 @@ export async function POST(request: NextRequest) {
       parsed.keywords = Array.isArray(parsed.keywords) ? parsed.keywords : [];
       parsed.moodResponse = parsed.moodResponse === "address" ? "address" : "match";
       if (!("adult" in parsed)) parsed.adult = false;
+      // normalize ambiguous flag
+      parsed.ambiguous = Boolean(parsed.ambiguous === true);
+    }
+
+    // Additional server-side ambiguity heuristics (fallback if Gemini doesn't mark ambiguous).
+    // Only apply when the client did NOT explicitly provide a mood (body.mood === "")
+    // Heuristic: very short / non-informative inputs or no extracted tokens/keywords/genres -> ambiguous.
+    const safeText = (text || "").trim();
+    if (!mood) {
+      const STOP_WORDS = new Set<string>([
+        "the","and","for","with","that","this","from","want","looking","watch","movie","movies",
+        "like","a","to","of","in","on","is","it","me","i","we","you","she","he","they","be","been",
+        "at","by","an","as","but","or","so","if","when","while","which","who","what","where","how",
+      ]);
+
+      // tokens: words of 3+ chars (letters or digits)
+      const tokens = ((safeText.toLowerCase().match(/\b[a-z0-9]{3,}\b/g) || []) as string[]).filter(
+        (t: string) => !STOP_WORDS.has(t)
+      );
+      const tooShort = safeText.length <= 2; // e.g. "i", "ok"
+      const only_pronoun_like = /^[\s]*[iImMuyUoO'"\.]{1,3}[\s]*$/.test(safeText); // crude single-token check
+
+      const noUsefulAnchors = tokens.length === 0 && parsed.keywords.length === 0 && parsed.genres.length === 0;
+
+      if (noUsefulAnchors || tooShort || only_pronoun_like) {
+        parsed.ambiguous = true;
+      }
+    }
+
+    // If parser marked the input ambiguous, stop and return an explicit error for the client
+    if (parsed.ambiguous) {
+      return NextResponse.json(
+        { message: "Mood unclear — please be more specific in your description.", code: "AMBIGUOUS", parsed },
+        { status: 400 }
+      );
     }
 
     // 2) Query TMDb for candidate movies using the parsed params
-    const candidates = await discoverMovies(parsed, { pages: 1 });
+    // Request multiple TMDb pages so we fetch ~60 candidates (20 per page) and can return 50 after rerank
+    const candidates = await discoverMovies(parsed, { pages: 5 });
 
     // 3) Rerank candidates using the parsed result and moodResponse
     const ranked = rerankMovies(candidates, {

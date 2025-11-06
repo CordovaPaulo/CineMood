@@ -136,7 +136,8 @@ async function fetchTrailerId(movieId: number): Promise<string | null> {
 export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: number } = { pages: 10 }) {
   if (!KEY) return [];
 
-  const requestedPages = Math.max(1, Math.min(4, opts.pages ?? 10));
+  // Increase pages fetched to get more diverse results
+  const requestedPages = Math.max(1, Math.min(10, opts.pages ?? 10)); // increased from 4 to 6
   const sorts = ["popularity.desc", "primary_release_date.desc", "release_date.desc", "vote_average.desc", "revenue.desc"];
   const sort_by = sorts[Math.floor(Math.random() * sorts.length)];
 
@@ -278,13 +279,14 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
       }
     }
 
-    const final = mapped.slice(0, 60).map((m) => {
+    // Increased from 60 to 100 to give reranker more options
+    const final = mapped.slice(0, 100).map((m) => {
       const { _combinedScore, ...out } = m;
       return out;
     });
 
     // fetch trailers for top subset and attach YouTube id
-    const fetchCount = Math.min(30, final.length);
+    const fetchCount = Math.min(50, final.length); // increased from 30 to 50
     const trailerPairs = await Promise.all(
       final.slice(0, fetchCount).map(async (m) => {
         const key = await fetchTrailerId(m.id).catch(() => null);

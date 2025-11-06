@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation"
 import { Navbar } from "../../components/navbar"
 import OfflineBanner from "../../components/offline-banner"
 import { MovieCard } from "../../components/movie-card"
-import { Alert, Button, Backdrop, CircularProgress } from "@mui/material"
+import { Alert, Button, Backdrop, CircularProgress, Chip } from "@mui/material"
 import { ArrowBack } from "@mui/icons-material"
 import { motion } from "framer-motion"
 import { fadeInUp, fadeIn, itemTransition } from "@/lib/motion"
 import { isNavigatorOnline } from "@/lib/network"
+import { toast } from "react-toastify"
 
 type Movie = {
   id: number
@@ -23,6 +24,12 @@ type Movie = {
   trailer_youtube_id?: string | null
 }
 
+type ParsedData = {
+  genres?: string[]
+  keywords?: string[]
+  moodResponse?: "match" | "address"
+}
+
 export default function ResultsPage() {
   const router = useRouter()
   const [selectedMood, setSelectedMood] = useState<string>("")
@@ -31,6 +38,7 @@ export default function ResultsPage() {
   const [movies, setMovies] = useState<Movie[]>([])
   const [allResults, setAllResults] = useState<Movie[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [parsedData, setParsedData] = useState<ParsedData | null>(null)
 
   // helper to pick a random sample of up to 5 from a list and persist the shown list
   function pickRandomFive(src?: Movie[]) {
@@ -48,27 +56,55 @@ export default function ResultsPage() {
     return chosen
   }
 
+  async function checkAuth() {
+    const auth = await fetch("/api/auth/", { method: "GET" })
+    if(!auth.ok){
+      setIsLoading(false)
+      toast.info("Please log in first to get personalized recommendations.")
+      return router.push("/")
+    }
+  }
+
   useEffect(() => {
+      checkAuth()
     let mounted = true
     const init = () => {
       setIsLoading(true)
 
-      // restore optional mood (may be empty for text-only queries)
+      // Restore mood information
       try {
         const mood = sessionStorage.getItem("selectedMood") || ""
         if (mounted) setSelectedMood(mood)
       } catch {}
 
-      // restore optional moodResponse and parsed params for context-only display if needed
+      // restore optional moodResponse
       try {
         const mr = sessionStorage.getItem("moodResponse") as "match" | "address" | null
         if (mounted) setMoodResponse(mr)
+      } catch {}
+
+      // Restore parsed data (genres, keywords)
+      try {
+        const storedParsed = sessionStorage.getItem("parsedData")
+        if (storedParsed) {
+          const parsed = JSON.parse(storedParsed)
+          if (mounted) setParsedData(parsed)
+        }
       } catch {}
 
       // transient in-memory results (preferred)
       const w = typeof window !== "undefined" ? (window as any) : undefined
       const transient = w?.__CINEMOOD_RESULTS__
       const transientAll = w?.__CINEMOOD_RESULTS_ALL__
+      const transientParsed = w?.__CINEMOOD_PARSED__
+
+      // Store parsed data if available
+      if (transientParsed) {
+        if (mounted) setParsedData(transientParsed)
+        try {
+          sessionStorage.setItem("parsedData", JSON.stringify(transientParsed))
+        } catch {}
+      }
 
       // If the caller provided the full results array
       if (Array.isArray(transientAll) && transientAll.length > 0) {
@@ -201,12 +237,28 @@ export default function ResultsPage() {
     }
   }, [isLoading, movies])
 
-  // Subtitle adapts when no mood is selected (text-only flow)
-  const subtitle = selectedMood
-    ? (moodDescriptions[selectedMood] || "Movies tailored for your vibe")
-    : moodResponse === "address"
-    ? "Based on your description — to help shift your mood"
-    : "Based on your description"
+  // Simplified subtitle logic
+  const subtitle = useMemo(() => {
+    if (!selectedMood) {
+      return moodResponse === "address"
+        ? "Based on your description — to help shift your mood"
+        : "Based on your description"
+    }
+    
+    if (moodResponse === "address") {
+      return `To help address your ${selectedMood} mood`
+    }
+    
+    return moodDescriptions[selectedMood] || "Movies tailored for your vibe"
+  }, [selectedMood, moodResponse, moodDescriptions])
+
+  // Simplified header title
+  const headerTitle = useMemo(() => {
+    if (moodResponse === "address" && selectedMood) {
+      return `Addressing Your ${selectedMood} Mood`
+    }
+    return selectedMood ? `Your ${selectedMood} Picks` : "Your Picks"
+  }, [selectedMood, moodResponse])
 
   return (
     <main className="min-h-screen bg-[#0B0B0F]">
@@ -246,34 +298,100 @@ export default function ResultsPage() {
 
           {/* Header */}
           <motion.div
-            className="flex items-center justify-between mb-8"
+            className="mb-8"
             variants={fadeInUp}
             initial="hidden"
             animate="show"
           >
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">
-                Your {selectedMood ? `${selectedMood} ` : ""}Picks
-              </h1>
-              <p className="text-[#A0A0A0] text-sm">
-                {subtitle}
-              </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                  {headerTitle}
+                </h1>
+                <p className="text-[#A0A0A0] text-sm">
+                  {subtitle}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleRefresh}
+                  variant="outlined"
+                  disabled={isLoading || (allResults?.length ?? 0) === 0}
+                  sx={{
+                    borderColor: "#A855F7",
+                    color: "#A855F7",
+                    textTransform: "none",
+                    "&:hover": { borderColor: "#8B46CF", color: "#8B46CF" },
+                  }}
+                >
+                  Refresh Picks
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleRefresh}
-                variant="outlined"
-                disabled={isLoading || (allResults?.length ?? 0) === 0}
-                sx={{
-                  borderColor: "#A855F7",
-                  color: "#A855F7",
-                  textTransform: "none",
-                  "&:hover": { borderColor: "#8B46CF", color: "#8B46CF" },
-                }}
-              >
-                Refresh Picks
-              </Button>
-            </div>
+
+            {/* Display mood chip if addressing mood */}
+            {moodResponse === "address" && selectedMood && (
+              <div className="mb-4">
+                <Chip
+                  label={`Counteracting: ${selectedMood}`}
+                  size="small"
+                  sx={{
+                    backgroundColor: "#2D2D3D",
+                    color: "#A855F7",
+                    fontWeight: 500,
+                    border: "1px solid #A855F7",
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Display parsed genres and keywords */}
+            {parsedData && (parsedData.genres || parsedData.keywords) && (
+              <div className="space-y-3 mt-4 p-4 bg-[#1A1A24] rounded-lg border border-[#2D2D3D]">
+                {parsedData.genres && parsedData.genres.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[#A0A0A0] text-sm font-medium">Genres:</span>
+                    {parsedData.genres.map((genre, idx) => (
+                      <Chip
+                        key={idx}
+                        label={genre}
+                        size="small"
+                        sx={{
+                          backgroundColor: "#A855F7",
+                          color: "white",
+                          fontWeight: 500,
+                          "&:hover": {
+                            backgroundColor: "#8B46CF",
+                          },
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {parsedData.keywords && parsedData.keywords.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[#A0A0A0] text-sm font-medium">Keywords:</span>
+                    {parsedData.keywords.map((keyword, idx) => (
+                      <Chip
+                        key={idx}
+                        label={keyword}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          borderColor: "#A855F7",
+                          color: "#A855F7",
+                          fontWeight: 500,
+                          "&:hover": {
+                            borderColor: "#8B46CF",
+                            color: "#8B46CF",
+                          },
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* Movie Grid */}
@@ -331,7 +449,13 @@ export default function ResultsPage() {
                   "& .MuiAlert-icon": { color: "#A855F7" },
                 }}
               >
-                Movies loaded! Found {movies?.length ?? 0} picks {selectedMood ? `for your ${selectedMood} mood` : "based on your description"}
+                Movies loaded! Found {movies?.length ?? 0} picks {
+                  moodResponse === "address" && selectedMood
+                    ? `to address your ${selectedMood} mood`
+                    : selectedMood 
+                    ? `for your ${selectedMood} mood` 
+                    : "based on your description"
+                }
               </Alert>
             </div>
           )}
