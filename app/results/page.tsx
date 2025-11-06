@@ -197,6 +197,7 @@ export default function ResultsPage() {
   )
 
   const handleRefresh = () => {
+    checkAuth()
     if (!isNavigatorOnline()) {
       setShowToast(true)
       setTimeout(() => setShowToast(false), 2500)
