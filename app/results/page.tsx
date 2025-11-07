@@ -196,30 +196,46 @@ export default function ResultsPage() {
     []
   )
 
-  const handleRefresh = () => {
-    checkAuth()
+  const handleRefresh = async () => {
+    // ensure user still authenticated before refreshing
+    await checkAuth()
+
     if (!isNavigatorOnline()) {
       setShowToast(true)
       setTimeout(() => setShowToast(false), 2500)
       alert("You’re offline. Reconnect to refresh picks.")
       return
     }
-    // Prefer in-memory allResults; otherwise read from sessionStorage
-    let pool: Movie[] | undefined = Array.isArray(allResults) && allResults.length > 0 ? allResults.slice() : undefined
-    if (!pool || pool.length === 0) {
-      try {
-        const storedAll = sessionStorage.getItem("recommendations_all")
-        if (storedAll) {
-          const parsedAll = JSON.parse(storedAll)
-          if (Array.isArray(parsedAll)) pool = parsedAll
-        }
-      } catch {}
+
+    // show loader for a couple of seconds to indicate refresh activity
+    setIsLoading(true)
+
+    const performRefresh = () => {
+      // Prefer in-memory allResults; otherwise read from sessionStorage
+      let pool: Movie[] | undefined =
+        Array.isArray(allResults) && allResults.length > 0 ? allResults.slice() : undefined
+
+      if (!pool || pool.length === 0) {
+        try {
+          const storedAll = sessionStorage.getItem("recommendations_all")
+          if (storedAll) {
+            const parsedAll = JSON.parse(storedAll)
+            if (Array.isArray(parsedAll)) pool = parsedAll
+          }
+        } catch {}
+      }
+
+      const newSample = pickRandomFive(pool)
+      setMovies(newSample)
+
+      // stop loader and show toast
+      setIsLoading(false)
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 2500)
     }
-    const newSample = pickRandomFive(pool)
-    setMovies(newSample)
-    // show a quick toast on refresh
-    setShowToast(true)
-    setTimeout(() => setShowToast(false), 2500)
+
+    // simulate brief network/processing delay (2s)
+    setTimeout(performRefresh, 2000)
   }
 
   useEffect(() => {

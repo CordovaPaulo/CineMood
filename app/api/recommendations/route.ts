@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({} as any));
     const { text = "", mood = "", moodResponse = "match" } = body;
 
-    // 1) Parse text, mood, and moodResponse into structured params (prefer Gemini)
     let parsed: any = null;
     const normalizedMoodResponse = (moodResponse === "address" ? "address" : "match");
 
@@ -20,12 +19,10 @@ export async function POST(request: NextRequest) {
       parsed = null;
     }
 
-    // Ensure parsed is always a usable object (route expects parsed.* later).
-    // Do NOT call external fallback parser per request — provide conservative defaults.
     if (!parsed || typeof parsed !== "object") {
       parsed = {
-        genres: [], // always an array
-        keywords: [], // always an array (used for overview matching)
+        genres: [], 
+        keywords: [], 
         tempo: undefined,
         runtime_min: undefined,
         runtime_max: undefined,
@@ -36,22 +33,15 @@ export async function POST(request: NextRequest) {
         ambiguous: false,
       };
     } else {
-      // normalize to expected shapes
       parsed.genres = Array.isArray(parsed.genres) ? parsed.genres : [];
       parsed.keywords = Array.isArray(parsed.keywords) ? parsed.keywords : [];
       parsed.moodResponse = parsed.moodResponse === "address" ? "address" : "match";
       if (!("adult" in parsed)) parsed.adult = false;
-      // normalize ambiguous flag
       parsed.ambiguous = Boolean(parsed.ambiguous === true);
     }
 
-    // Additional server-side ambiguity heuristics (fallback if Gemini doesn't mark ambiguous).
-    // Only apply when the client did NOT explicitly provide a mood (body.mood === "")
-    // Heuristic: very short / non-informative inputs or no extracted tokens/keywords/genres -> ambiguous.
     const safeText = (text || "").trim();
 
-    // Only run ambiguity heuristics when the user actually provided an input text.
-    // If no text is provided (only a mood was passed from the home page), skip ambiguity checks.
     if (safeText.length > 0) {
       const STOP_WORDS = new Set<string>([
         "the","and","for","with","that","this","from","want","looking","watch","movie","movies",
@@ -71,10 +61,8 @@ export async function POST(request: NextRequest) {
       if (noUsefulAnchors || tooShort || only_pronoun_like) {
         parsed.ambiguous = true;
       }
-    } // end safeText check
+    } 
 
-    // Only treat ambiguity as an error when the user actually provided text.
-    // If no text was provided (mood-only flow), skip the ambiguity error.
     if (safeText.length > 0 && parsed.ambiguous) {
       return NextResponse.json(
         { message: "Mood unclear — please be more specific in your description.", code: "AMBIGUOUS", parsed },
@@ -82,11 +70,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2) Query TMDb for candidate movies using the parsed params
-    // Request multiple TMDb pages so we fetch ~60 candidates (20 per page) and can return 50 after rerank
     const candidates = await discoverMovies(parsed, { pages: 5 });
 
-    // 3) Rerank candidates using the parsed result and moodResponse
     const ranked = rerankMovies(candidates, {
       userText: text,
       parsed,
@@ -95,7 +80,6 @@ export async function POST(request: NextRequest) {
       limit: 20,
     });
 
-    // Return both the ranked results and the parsed JSON used to fetch from TMDb
     return NextResponse.json(
       {
         results: ranked,
