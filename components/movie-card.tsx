@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardMedia, Button, Dialog, DialogContent, IconButton } from "@mui/material"
 import { Star, Close } from "@mui/icons-material"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 interface MovieCardProps {
   title: string
@@ -16,8 +16,53 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
   const [isHovered, setIsHovered] = useState(false)
   const [openTrailer, setOpenTrailer] = useState(false)
 
+  // memoized placeholder SVG with title text (used when posterPath is missing)
+  const placeholderSrc = useMemo(() => {
+    const text = String(title || "Untitled").trim().slice(0, 60)
+    // pick a predictable background color from title hash
+    const colors = ["#7C3AED", "#A855F7", "#F97316", "#06B6D4", "#EF4444", "#10B981"]
+    let h = 0
+    for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0
+    const bg = colors[Math.abs(h) % colors.length]
+
+    // split title into up to 3 lines for SVG
+    const words = text.split(/\s+/)
+    const lines: string[] = []
+    let cur = ""
+    for (const w of words) {
+      if ((cur + " " + w).trim().length <= 20) {
+        cur = (cur + " " + w).trim()
+      } else {
+        if (cur) lines.push(cur)
+        cur = w
+      }
+      if (lines.length >= 2) break
+    }
+    if (cur && lines.length < 3) lines.push(cur)
+
+    const svg = `
+      <svg xmlns='http://www.w3.org/2000/svg' width='500' height='750' viewBox='0 0 500 750'>
+        <rect width='100%' height='100%' fill='${bg}'/>
+        <g font-family='Inter, Roboto, Helvetica, Arial, sans-serif' fill='#ffffff' text-anchor='middle'>
+          <text x='50%' y='45%' font-size='22' font-weight='600'>
+            ${escapeXml(lines[0] || "")}
+          </text>
+          ${lines[1] ? `<text x='50%' y='52%' font-size='18' font-weight='500'>${escapeXml(lines[1])}</text>` : ""}
+          ${lines[2] ? `<text x='50%' y='59%' font-size='16' font-weight='500'>${escapeXml(lines[2])}</text>` : ""}
+        </g>
+      </svg>`
+
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  }, [title])
+
+  function escapeXml(s: string) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  }
+
   const ratingText = typeof rating === "number" ? rating.toFixed(1) : "N/A"
   const embedUrl = trailerId ? `https://www.youtube.com/embed/${trailerId}?autoplay=1&rel=0` : null
+
+  const imageSrc = posterPath || placeholderSrc
 
   return (
     <Card
@@ -37,7 +82,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         },
       }}
     >
-      <CardMedia component="img" height="300" image={posterPath || ""} alt={title} sx={{ objectFit: "cover" }} />
+      <CardMedia component="img" height="300" image={imageSrc} alt={title} sx={{ objectFit: "cover" }} />
 
       {/* Rating Badge */}
       <div className="absolute top-3 right-3 bg-[#A855F7] text-white px-3 py-1 rounded-full flex items-center gap-1 text-sm font-semibold">

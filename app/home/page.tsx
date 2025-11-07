@@ -83,8 +83,16 @@ export default function Home() {
   const [showMoodResponse, setShowMoodResponse] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // dynamic prompt length validation
+  const MAX_PROMPT_LENGTH = 50
+
   // replace beginSubmit to defer ambiguity detection to Gemini
   const beginSubmit = () => {
+    // enforce prompt length before attempting submission
+    if ((textInput || "").trim().length > MAX_PROMPT_LENGTH) {
+      toast.error(`Please limit your description to ${MAX_PROMPT_LENGTH} characters.`)
+      return
+    }
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) {
       toast.info("Please select a mood or enter a description to find movies.")
@@ -98,6 +106,11 @@ export default function Home() {
   }
 
   async function submitRecommendations() {
+    // double-check length on submit
+    if ((textInput || "").trim().length > MAX_PROMPT_LENGTH) {
+      toast.error(`Please limit your description to ${MAX_PROMPT_LENGTH} characters.`)
+      return
+    }
     const hasInput = !!selectedMood || !!textInput.trim()
     if (!hasInput) return
     if (!moodResponse) {
@@ -125,10 +138,17 @@ export default function Home() {
         return router.push("/")
       }
 
+      // avoid reusing the name `payload` (response uses `payload`)
+      const requestBody: any = {
+        mood: selectedMood || "",
+        moodResponse: moodResponse || "",
+      }
+      if ((textInput || "").trim().length > 0) requestBody.text = textInput.trim()
+
       const res = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: textInput, mood: selectedMood || "", moodResponse: moodResponse || "" }),
+        body: JSON.stringify(requestBody),
       })
 
       const contentType = (res.headers.get("content-type") || "").toLowerCase()
@@ -140,8 +160,8 @@ export default function Home() {
         payload = { error: "non-json response", text }
       }
 
-      // NEW: respect Gemini's ambiguity decision
-      if (payload?.parsed?.ambiguous) {
+      // Only interpret ambiguity if we actually submitted text
+      if (payload?.parsed?.ambiguous && (requestBody.text || "").trim().length > 0) {
         toast.error("Mood unclear — please be more specific in your description.")
         setLoading(false)
         return
@@ -265,23 +285,18 @@ export default function Home() {
                 fullWidth
                 multiline
                 rows={3}
-                // limit={50} 
                 placeholder="E.g., I want something uplifting but not too cheesy, or I'm feeling nostalgic about the 90s..."
                 value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
+                onChange={(e) => setTextInput(e.target.value.slice(0, MAX_PROMPT_LENGTH))}
                 variant="standard"
+                error={textInput.length > MAX_PROMPT_LENGTH}
+                inputProps={{ maxLength: MAX_PROMPT_LENGTH }}
                 sx={{
                   "& .MuiInput-root": {
                     color: "white",
-                    "&:before": {
-                      borderBottom: "none",
-                    },
-                    "&:hover:before": {
-                      borderBottom: "none",
-                    },
-                    "&:after": {
-                      borderBottom: "none",
-                    },
+                    "&:before": { borderBottom: "none" },
+                    "&:hover:before": { borderBottom: "none" },
+                    "&:after": { borderBottom: "none" },
                   },
                   "& .MuiInput-input::placeholder": {
                     color: "#A0A0A0",
@@ -289,6 +304,17 @@ export default function Home() {
                   },
                 }}
               />
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                <span
+                  style={{
+                    color: textInput.length > MAX_PROMPT_LENGTH ? "#F87171" : "#9CA3AF",
+                    fontSize: 13,
+                    margin: 0,
+                  }}
+                >
+                  {textInput.length}/{MAX_PROMPT_LENGTH} characters
+                </span>
+              </div>
               <div style={{ marginTop: 8 }}>
                 <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
                   You can also find movies using only text — we’ll still ask how they should relate to your mood.

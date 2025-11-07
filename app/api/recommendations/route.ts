@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
     // Only apply when the client did NOT explicitly provide a mood (body.mood === "")
     // Heuristic: very short / non-informative inputs or no extracted tokens/keywords/genres -> ambiguous.
     const safeText = (text || "").trim();
-    if (!mood) {
+
+    // Only run ambiguity heuristics when the user actually provided an input text.
+    // If no text is provided (only a mood was passed from the home page), skip ambiguity checks.
+    if (safeText.length > 0) {
       const STOP_WORDS = new Set<string>([
         "the","and","for","with","that","this","from","want","looking","watch","movie","movies",
         "like","a","to","of","in","on","is","it","me","i","we","you","she","he","they","be","been",
@@ -68,10 +71,11 @@ export async function POST(request: NextRequest) {
       if (noUsefulAnchors || tooShort || only_pronoun_like) {
         parsed.ambiguous = true;
       }
-    }
+    } // end safeText check
 
-    // If parser marked the input ambiguous, stop and return an explicit error for the client
-    if (parsed.ambiguous) {
+    // Only treat ambiguity as an error when the user actually provided text.
+    // If no text was provided (mood-only flow), skip the ambiguity error.
+    if (safeText.length > 0 && parsed.ambiguous) {
       return NextResponse.json(
         { message: "Mood unclear — please be more specific in your description.", code: "AMBIGUOUS", parsed },
         { status: 400 }
