@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { TextField, Button, Card, CardContent, Backdrop, CircularProgress } from "@mui/material"
 import Link from "next/link"
@@ -17,6 +16,15 @@ export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false) // added
+
+  async function checkAuth() {
+    const auth = await fetch("/api/auth/", { method: "GET" })
+    if(auth.ok){
+      // setIsLoading(false)
+      // toast.info("Please log in first to get personalized recommendations.")
+      return router.push("/home")
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => { // make async
     e.preventDefault()
@@ -47,6 +55,10 @@ export default function SignupPage() {
       setLoading(false) // stop loader
     }
   }
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
 
   return (
     <main className="min-h-screen bg-[#0B0B0F] flex flex-col">

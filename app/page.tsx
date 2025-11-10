@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { TextField, Button, Card, CardContent, Backdrop, CircularProgress } from "@mui/material"
 import Link from "next/link"
@@ -14,6 +14,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false) // added
+
+  async function checkAuth() {
+      const auth = await fetch("/api/auth/", { method: "GET" })
+      if(auth.ok){
+        return router.push("/home")
+      }
+    }
+
+    useEffect(() => {
+      checkAuth()
+    }, [])
 
   const handleSubmit = async (e: React.FormEvent) => { // make async
     e.preventDefault()
