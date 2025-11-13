@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Alert } from "@mui/material"
+import { useTheme } from "@/contexts/theme-context"
 
 export default function OfflineBanner() {
   const [offline, setOffline] = useState<boolean>(false)
+  const { theme } = useTheme()
 
   useEffect(() => {
     const update = () => setOffline(typeof navigator !== "undefined" && !navigator.onLine)
@@ -23,7 +25,7 @@ export default function OfflineBanner() {
       <Alert
         severity="warning"
         sx={{
-          backgroundColor: "#1A1A24",
+          backgroundColor: theme.card.bg,
           color: "white",
           border: "1px solid #2D2D3D",
           borderRadius: "0.75rem",

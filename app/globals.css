@@ -6,6 +6,7 @@
 :root {
   --background: #0b0b0f;
   --foreground: #ffffff;
+  --text-primary: #ffffff;
   --primary: #b549e7;
   --primary-dark: #9a39c7;
   --accent: #b549e7;
@@ -125,27 +126,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: var(--background);
+    transition: background-color 1s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-/* Enhanced radial gradients to match design image - stronger top-left glow with scattered purple accents */
-body::before {
-  content: "";
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    /* radial-gradient(circle at 20% 25%, rgba(181, 73, 231, 0.35) 0%, transparent 35%), */
-    radial-gradient(circle at 85% 10%, rgba(181, 73, 231, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 5% 85%, rgba(181, 73, 231, 0.2) 0%, transparent 45%),
-    radial-gradient(circle at 35% 35%, rgba(181, 73, 231, 0.20) 0%, transparent 10%),
-    radial-gradient(circle at 65% 65%, rgba(181, 73, 231, 0.25) 0%, transparent 10%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* Background gradients now fully controlled by DynamicBackground component */
 
 html {
   scroll-behavior: smooth;

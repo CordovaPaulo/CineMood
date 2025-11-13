@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { fadeInUp, itemTransition } from "@/lib/motion"
 import { toast } from "react-toastify"
 import { useFavoritesHistory } from "../providers/FavoritesHistoryProvider"
+import { useTheme } from "@/contexts/theme-context"
+import { MOOD_COLORS } from "@/lib/mood-colors"
 
 type Movie = {
   id: number
@@ -41,6 +43,7 @@ type HistoryPrompt = {
 
 export default function HistoryPage() {
   const router = useRouter()
+  const { theme } = useTheme()
   const { history, loadingHistory, refreshHistory } = useFavoritesHistory()
   const [moviesData, setMoviesData] = useState<Record<string, Movie>>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -167,23 +170,13 @@ export default function HistoryPage() {
     })
   }
 
-  const getMoodColor = (mood: string) => {
-    const colors: Record<string, string> = {
-      Happy: "#FFD700",
-      Sad: "#4A90E2",
-      Romantic: "#FF69B4",
-      Excited: "#FF6347",
-      Relaxed: "#98D8C8",
-      Angry: "#DC143C",
-      Scared: "#800080",
-      Adventurous: "#FF8C00",
-      Mysterious: "#9370DB",
-    }
-    return colors[mood] || "#A855F7"
+  const getMoodColor = (mood: string): string => {
+    const moodType = mood as keyof typeof MOOD_COLORS
+    return MOOD_COLORS[moodType]?.primary || theme.primary
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0B0F]">
+    <main className="min-h-screen" style={{ backgroundColor: theme.background.base, transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
       <Navbar />
 
       <Backdrop
@@ -204,12 +197,12 @@ export default function HistoryPage() {
             animate="show"
           >
             <div className="flex items-center gap-3 mb-2">
-              <HistoryIcon sx={{ color: "#A855F7", fontSize: 32 }} />
-              <h1 className="text-3xl font-bold text-white">
+              <HistoryIcon sx={{ color: theme.primary, fontSize: 32, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }} />
+              <h1 className="text-3xl font-bold" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                 Your Recommendation History
               </h1>
             </div>
-            <p className="text-[#A0A0A0] text-sm">
+            <p className="text-sm" style={{ color: theme.text.secondary }}>
               Review your past mood-based movie recommendations
             </p>
           </motion.div>
@@ -225,10 +218,10 @@ export default function HistoryPage() {
               <Alert
                 severity="info"
                 sx={{
-                  backgroundColor: "#1A1A24",
-                  color: "#A0A0A0",
-                  border: "1px solid #2D2D3D",
-                  "& .MuiAlert-icon": { color: "#A855F7" },
+                  backgroundColor: theme.card.bg,
+                  color: theme.text.secondary,
+                  border: `1px solid ${theme.card.border}`,
+                  "& .MuiAlert-icon": { color: theme.primary },
                 }}
               >
                 No history yet. Start by getting some movie recommendations!
@@ -256,8 +249,8 @@ export default function HistoryPage() {
                         expanded={isExpanded}
                         onChange={handleAccordionChange(index)}
                         sx={{
-                          backgroundColor: "#1A1A24",
-                          border: "1px solid #2D2D3D",
+                          backgroundColor: theme.card.bg,
+                          border: `1px solid ${theme.card.border}`,
                           borderRadius: "12px !important",
                           "&:before": { display: "none" },
                           "&.Mui-expanded": {
@@ -267,7 +260,7 @@ export default function HistoryPage() {
                       >
                         <AccordionSummary
                           expandIcon={
-                            <ExpandMore sx={{ color: "#A855F7" }} />
+                            <ExpandMore sx={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }} />
                           }
                           sx={{
                             "& .MuiAccordionSummary-content": {
@@ -290,7 +283,7 @@ export default function HistoryPage() {
                               <div>
                                 <Typography
                                   sx={{
-                                    color: "white",
+                                    color: theme.text.primary,
                                     fontWeight: 500,
                                     fontSize: "1rem",
                                   }}
@@ -301,12 +294,12 @@ export default function HistoryPage() {
                                   <CalendarToday
                                     sx={{
                                       fontSize: 14,
-                                      color: "#A0A0A0",
+                                      color: theme.text.secondary,
                                     }}
                                   />
                                   <Typography
                                     sx={{
-                                      color: "#A0A0A0",
+                                      color: theme.text.secondary,
                                       fontSize: "0.85rem",
                                     }}
                                   >
@@ -329,9 +322,10 @@ export default function HistoryPage() {
                               onClick={() => handleRefreshSelection(index)}
                               disabled={isLoadingMovies}
                               sx={{
-                                color: "#A855F7",
+                                color: theme.primary,
                                 borderColor: "#2D2D3D",
                                 textTransform: "none",
+                                transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
                               }}
                               variant="outlined"
                             >
@@ -343,7 +337,7 @@ export default function HistoryPage() {
                             <Box className="flex justify-center py-8">
                               <CircularProgress
                                 size={32}
-                                sx={{ color: "#A855F7" }}
+                                sx={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}
                               />
                             </Box>
                           ) : (

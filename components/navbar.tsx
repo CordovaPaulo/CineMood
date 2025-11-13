@@ -2,13 +2,18 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Button, Menu, MenuItem } from "@mui/material"
+import { Button, Menu, MenuItem, IconButton, Tooltip } from "@mui/material"
+import { LightMode, DarkMode } from "@mui/icons-material"
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { easeOut, itemTransition } from "@/lib/motion"
+import { useTheme } from "@/contexts/theme-context"
+import { hexToRgba } from "@/lib/mood-colors"
+import { getContrastText } from "@/lib/mood-colors"
 
 export function Navbar() {
   const pathname = usePathname()
+  const { theme, mode, toggleMode } = useTheme()
   const [userName, setUserName] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
@@ -49,26 +54,48 @@ export function Navbar() {
       initial={{ y: -12, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: easeOut }}
-      className="fixed top-0 left-0 right-0 z-50 bg-[#0B0B0F]/80 backdrop-blur-md border-b border-[#2D2D3D]"
+      style={{
+        backgroundColor: hexToRgba(theme.card.bg, 0.92),
+        borderBottomColor: theme.card.border,
+        transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b"
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-bold text-[#b549e7]">
+        <Link href="/" className="text-2xl font-bold" style={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
           CineMood
         </Link>
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          {/* Theme Mode Toggle */}
+          <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+            <IconButton
+              onClick={toggleMode}
+              sx={{
+                color: theme.primary,
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  backgroundColor: hexToRgba(theme.primary, 0.1),
+                },
+              }}
+            >
+              {mode === "dark" ? <LightMode /> : <DarkMode />}
+            </IconButton>
+          </Tooltip>
+
           <Link href="/home">
             <Button
               variant={pathname === "/home" ? "contained" : "text"}
               sx={{
-                color: pathname === "/home" ? "white" : "#A0A0A0",
-                backgroundColor: pathname === "/home" ? "#b549e7" : "transparent",
+                color: pathname === "/home" ? getContrastText(theme.primary) : theme.text.secondary,
+                backgroundColor: pathname === "/home" ? theme.primary : "transparent",
                 textTransform: "none",
                 fontSize: "0.95rem",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  backgroundColor: pathname === "/home" ? "#9333EA" : "rgba(168, 85, 247, 0.1)",
+                  backgroundColor: pathname === "/home" ? theme.primaryDark : hexToRgba(theme.primary, 0.1),
                 },
               }}
             >
@@ -80,12 +107,13 @@ export function Navbar() {
             <Button
               variant={pathname === "/favorites" ? "contained" : "text"}
               sx={{
-                color: pathname === "/favorites" ? "white" : "#A0A0A0",
-                backgroundColor: pathname === "/favorites" ? "#b549e7" : "transparent",
+                color: pathname === "/favorites" ? getContrastText(theme.primary) : theme.text.secondary,
+                backgroundColor: pathname === "/favorites" ? theme.primary : "transparent",
                 textTransform: "none",
                 fontSize: "0.95rem",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  backgroundColor: pathname === "/favorites" ? "#9333EA" : "rgba(168, 85, 247, 0.1)",
+                  backgroundColor: pathname === "/favorites" ? theme.primaryDark : hexToRgba(theme.primary, 0.1),
                 },
               }}
             >
@@ -97,12 +125,13 @@ export function Navbar() {
             <Button
               variant={pathname === "/history" ? "contained" : "text"}
               sx={{
-                color: pathname === "/history" ? "white" : "#A0A0A0",
-                backgroundColor: pathname === "/history" ? "#b549e7" : "transparent",
+                color: pathname === "/history" ? getContrastText(theme.primary) : theme.text.secondary,
+                backgroundColor: pathname === "/history" ? theme.primary : "transparent",
                 textTransform: "none",
                 fontSize: "0.95rem",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  backgroundColor: pathname === "/history" ? "#9333EA" : "rgba(168, 85, 247, 0.1)",
+                  backgroundColor: pathname === "/history" ? theme.primaryDark : hexToRgba(theme.primary, 0.1),
                 },
               }}
             >
@@ -114,12 +143,13 @@ export function Navbar() {
             <Button
               variant="text"
               sx={{
-                color: pathname === "/about" ? "white" : "#A0A0A0",
-                backgroundColor: pathname === "/about" ? "#b549e7" : "transparent",
+                color: pathname === "/about" ? getContrastText(theme.primary) : theme.text.secondary,
+                backgroundColor: pathname === "/about" ? theme.primary : "transparent",
                 textTransform: "none",
                 fontSize: "0.95rem",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  backgroundColor: pathname === "/about" ? "#9333EA" : "rgba(181, 73, 231, 0.1)",
+                  backgroundColor: pathname === "/about" ? theme.primaryDark : hexToRgba(theme.primary, 0.1),
                 },
               }}
             >
@@ -137,7 +167,7 @@ export function Navbar() {
                 animate={{ opacity: 0.4 }}
                 exit={{ opacity: 0 }}
                 transition={itemTransition(0)}
-                className="h-9 w-20 rounded-md bg-[#2D2D3D]"
+                style={{ height: 36, width: 80, borderRadius: 8, backgroundColor: theme.card.bg }}
               />
             ) : userName ? (
               <motion.div
@@ -151,11 +181,12 @@ export function Navbar() {
                   onClick={(e) => setMenuAnchor(e.currentTarget)}
                   variant="outlined"
                   sx={{
-                    color: "white",
-                    borderColor: "#b549e7",
+                    color: theme.text.primary,
+                    borderColor: theme.primary,
                     textTransform: "none",
                     fontSize: "0.95rem",
-                    "&:hover": { backgroundColor: "rgba(181, 73, 231, 0.1)" },
+                    transition: "all 0.3s ease",
+                    "&:hover": { backgroundColor: hexToRgba(theme.primary, 0.1) },
                   }}
                 >
                   {userName}
@@ -173,18 +204,19 @@ export function Navbar() {
                   <Button
                     variant={pathname === "/" || pathname === "/signup" ? "contained" : "outlined"}
                     sx={{
-                      color: "white",
-                      borderColor: "#b549e7",
+                      color: (pathname === "/" || pathname === "/signup") ? getContrastText(theme.primary) : theme.text.primary,
+                      borderColor: theme.primary,
                       backgroundColor:
-                        pathname === "/" || pathname === "/signup" ? "#b549e7" : "transparent",
+                        pathname === "/" || pathname === "/signup" ? theme.primary : "transparent",
                       textTransform: "none",
                       fontSize: "0.95rem",
+                      transition: "all 0.3s ease",
                       "&:hover": {
                         backgroundColor:
                           pathname === "/" || pathname === "/signup"
-                            ? "#9333EA"
-                            : "rgba(168, 85, 247, 0.1)",
-                        borderColor: "#b549e7",
+                            ? theme.primaryDark
+                            : hexToRgba(theme.primary, 0.1),
+                        borderColor: theme.primary,
                       },
                     }}
                   >

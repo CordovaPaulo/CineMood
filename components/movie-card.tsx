@@ -3,6 +3,7 @@
 import { Card, CardContent, CardMedia, Button, Dialog, DialogContent, IconButton } from "@mui/material"
 import { Star, Close } from "@mui/icons-material"
 import { useState, useMemo } from "react"
+import { useTheme } from "@/contexts/theme-context"
 
 interface MovieCardProps {
   title: string
@@ -13,6 +14,7 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ title, posterPath, rating, overview, trailerId }: MovieCardProps) {
+  const { theme } = useTheme()
   const [isHovered, setIsHovered] = useState(false)
   const [openTrailer, setOpenTrailer] = useState(false)
 
@@ -69,7 +71,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       sx={{
-        backgroundColor: "#1A1A24",
+        backgroundColor: theme.card.bg,
         border: "1px solid #2D2D3D",
         borderRadius: "1rem",
         overflow: "hidden",
@@ -94,8 +96,8 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
       {isHovered && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="text-center">
-            <h3 className="text-white font-semibold mb-3">{title}</h3>
-            <p className="text-[#A0A0A0] text-sm line-clamp-4 mb-4">{overview}</p>
+            <h3 className="font-semibold mb-3" style={{ color: "#FFFFFF" }}>{title}</h3>
+            <p className="text-sm line-clamp-4 mb-4" style={{ color: "#A0A0A0" }}>{overview}</p>
             <Button
               variant="contained"
               onClick={() => setOpenTrailer(true)}
@@ -113,7 +115,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
       )}
 
       <CardContent className="py-3">
-        <h3 className="text-white font-semibold text-sm line-clamp-2 mb-2">{title}</h3>
+        <h3 className="font-semibold text-sm line-clamp-2 mb-2" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>{title}</h3>
         {/* Secondary button when not hovered (mobile/keyboard users)
         <Button
           size="small"
