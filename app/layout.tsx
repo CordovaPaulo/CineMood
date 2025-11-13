@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import ToastWrapper from "../components/toast-wrapper"
+import { FavoritesHistoryProvider } from "./providers/FavoritesHistoryProvider"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -20,10 +21,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
-        <ToastWrapper />
-        {children}
-        </body>
+      <body>
+        <FavoritesHistoryProvider>
+          <ToastWrapper />
+          {children}
+        </FavoritesHistoryProvider>
+      </body>
     </html>
   )
 }
