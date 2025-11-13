@@ -11,7 +11,8 @@ import { motion } from "framer-motion"
 import { fadeInUp, fadeIn, itemTransition } from "@/lib/motion"
 import { isNavigatorOnline } from "@/lib/network"
 import { toast } from "react-toastify"
-import { saveToHistory } from "@/lib/history"
+import { useTheme } from "@/contexts/theme-context"
+import { MoodType, MoodResponse as MoodResponseType } from "@/lib/mood-colors"
 
 type Movie = {
   id: number
@@ -33,6 +34,7 @@ type ParsedData = {
 
 export default function ResultsPage() {
   const router = useRouter()
+  const { updateTheme, theme } = useTheme()
   const [selectedMood, setSelectedMood] = useState<string>("")
   const [moodResponse, setMoodResponse] = useState<"match" | "address" | null>(null)
   const [showToast, setShowToast] = useState(true)
@@ -40,7 +42,6 @@ export default function ResultsPage() {
   const [allResults, setAllResults] = useState<Movie[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [parsedData, setParsedData] = useState<ParsedData | null>(null)
-  const [historySaved, setHistorySaved] = useState(false)
 
   // helper to pick a random sample of up to 5 from a list and persist the shown list
   function pickRandomFive(src?: Movie[]) {
@@ -76,13 +77,15 @@ export default function ResultsPage() {
       // Restore mood information
       try {
         const mood = sessionStorage.getItem("selectedMood") || ""
-        if (mounted) setSelectedMood(mood)
-      } catch {}
-
-      // restore optional moodResponse
-      try {
         const mr = sessionStorage.getItem("moodResponse") as "match" | "address" | null
-        if (mounted) setMoodResponse(mr)
+        if (mounted) {
+          setSelectedMood(mood)
+          setMoodResponse(mr)
+          // Update theme based on stored mood and response
+          if (mood) {
+            updateTheme(mood as MoodType, mr as MoodResponseType)
+          }
+        }
       } catch {}
 
       // Restore parsed data (genres, keywords)
@@ -117,14 +120,6 @@ export default function ResultsPage() {
           } catch {}
           const sample = pickRandomFive(transientAll)
           setMovies(sample)
-          
-          // Save to history
-          const mood = sessionStorage.getItem("selectedMood") || ""
-          if (mood && !historySaved) {
-            saveToHistory(mood, transientAll.map((m: Movie) => m.id)).then(() => {
-              setHistorySaved(true)
-            })
-          }
         }
         try {
           if (w) {
@@ -145,14 +140,6 @@ export default function ResultsPage() {
           } catch {}
           const sample = pickRandomFive(transient)
           setMovies(sample)
-          
-          // Save to history
-          const mood = sessionStorage.getItem("selectedMood") || ""
-          if (mood && !historySaved) {
-            saveToHistory(mood, transient.map((m: Movie) => m.id)).then(() => {
-              setHistorySaved(true)
-            })
-          }
         }
         try {
           if (w) delete w.__CINEMOOD_RESULTS__
@@ -196,7 +183,7 @@ export default function ResultsPage() {
     return () => {
       mounted = false
     }
-  }, [router, historySaved])
+  }, [router])
 
   const moodDescriptions: Record<string, string> = useMemo(
     () => ({
@@ -336,7 +323,7 @@ export default function ResultsPage() {
   }, [selectedMood, moodResponse])
 
   return (
-    <main className="min-h-screen bg-[#0B0B0F]">
+    <main className="min-h-screen" style={{ backgroundColor: theme.background.base, transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
       <Navbar />
       <OfflineBanner />
 
@@ -359,10 +346,11 @@ export default function ResultsPage() {
                 onClick={() => router.push("/home")}
                 startIcon={<ArrowBack />}
                 sx={{
-                  color: "#A0A0A0",
+                  color: theme.text.secondary,
                   textTransform: "none",
+                  transition: "all 0.3s ease",
                   "&:hover": {
-                    color: "#A855F7",
+                    color: theme.primary,
                   },
                 }}
               >
@@ -380,10 +368,10 @@ export default function ResultsPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                <h1 className="text-2xl md:text-3xl font-bold" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                   {headerTitle}
                 </h1>
-                <p className="text-[#A0A0A0] text-sm">
+                <p className="text-sm" style={{ color: theme.text.secondary }}>
                   {subtitle}
                 </p>
               </div>
@@ -393,10 +381,11 @@ export default function ResultsPage() {
                   variant="outlined"
                   disabled={isLoading || (allResults?.length ?? 0) === 0}
                   sx={{
-                    borderColor: "#A855F7",
-                    color: "#A855F7",
+                    borderColor: theme.primary,
+                    color: theme.primary,
                     textTransform: "none",
-                    "&:hover": { borderColor: "#8B46CF", color: "#8B46CF" },
+                    transition: "all 0.3s ease",
+                    "&:hover": { borderColor: theme.primaryDark, color: theme.primaryDark },
                   }}
                 >
                   Refresh Picks
@@ -406,10 +395,11 @@ export default function ResultsPage() {
                   variant="contained"
                   disabled={isLoading || (movies?.length ?? 0) === 0}
                   sx={{
-                    backgroundColor: "#A855F7",
+                    backgroundColor: theme.primary,
                     color: "white",
                     textTransform: "none",
-                    "&:hover": { backgroundColor: "#8B46CF" },
+                    transition: "all 0.3s ease",
+                    "&:hover": { backgroundColor: theme.primaryDark },
                   }}
                 >
                   Add to Favorites
@@ -424,10 +414,11 @@ export default function ResultsPage() {
                   label={`Counteracting: ${selectedMood}`}
                   size="small"
                   sx={{
-                    backgroundColor: "#2D2D3D",
-                    color: "#A855F7",
+                    backgroundColor: theme.card.bg,
+                    color: theme.primary,
                     fontWeight: 500,
-                    border: "1px solid #A855F7",
+                    border: `1px solid ${theme.primary}`,
+                    transition: "all 0.3s ease",
                   }}
                 />
               </div>
@@ -435,21 +426,22 @@ export default function ResultsPage() {
 
             {/* Display parsed genres and keywords */}
             {parsedData && (parsedData.genres || parsedData.keywords) && (
-              <div className="space-y-3 mt-4 p-4 bg-[#1A1A24] rounded-lg border border-[#2D2D3D]">
+              <div className="space-y-3 mt-4 p-4 rounded-lg border" style={{ backgroundColor: theme.card.bg, borderColor: theme.card.border, transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                 {parsedData.genres && parsedData.genres.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[#A0A0A0] text-sm font-medium">Genres:</span>
+                    <span className="text-sm font-medium" style={{ color: theme.text.secondary }}>Genres:</span>
                     {parsedData.genres.map((genre, idx) => (
                       <Chip
                         key={idx}
                         label={genre}
                         size="small"
                         sx={{
-                          backgroundColor: "#A855F7",
+                          backgroundColor: theme.primary,
                           color: "white",
                           fontWeight: 500,
+                          transition: "all 0.3s ease",
                           "&:hover": {
-                            backgroundColor: "#8B46CF",
+                            backgroundColor: theme.primaryDark,
                           },
                         }}
                       />
@@ -458,7 +450,7 @@ export default function ResultsPage() {
                 )}
                 {parsedData.keywords && parsedData.keywords.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[#A0A0A0] text-sm font-medium">Keywords:</span>
+                    <span className="text-sm font-medium" style={{ color: theme.text.secondary }}>Keywords:</span>
                     {parsedData.keywords.map((keyword, idx) => (
                       <Chip
                         key={idx}
@@ -466,12 +458,13 @@ export default function ResultsPage() {
                         size="small"
                         variant="outlined"
                         sx={{
-                          borderColor: "#A855F7",
-                          color: "#A855F7",
+                          borderColor: theme.primary,
+                          color: theme.primary,
                           fontWeight: 500,
+                          transition: "all 0.3s ease",
                           "&:hover": {
-                            borderColor: "#8B46CF",
-                            color: "#8B46CF",
+                            borderColor: theme.primaryDark,
+                            color: theme.primaryDark,
                           },
                         }}
                       />
@@ -513,7 +506,7 @@ export default function ResultsPage() {
                ))
              ) : (
               <motion.div
-                className="col-span-full text-center text-[#A0A0A0]"
+                className="col-span-full text-center" style={{ color: theme.text.secondary }}
                 initial="hidden"
                 animate="show"
                 variants={fadeIn}
@@ -534,7 +527,7 @@ export default function ResultsPage() {
                   color: "white",
                   border: "1px solid #2D2D3D",
                   borderRadius: "0.75rem",
-                  "& .MuiAlert-icon": { color: "#A855F7" },
+                  "& .MuiAlert-icon": { color: theme.primary },
                 }}
               >
                 Movies loaded! Found {movies?.length ?? 0} picks {

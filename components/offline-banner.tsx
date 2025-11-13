@@ -23,7 +23,7 @@ export default function OfflineBanner() {
       <Alert
         severity="warning"
         sx={{
-          backgroundColor: "#1A1A24",
+          backgroundColor: theme.card.bg,
           color: "white",
           border: "1px solid #2D2D3D",
           borderRadius: "0.75rem",

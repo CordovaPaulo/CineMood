@@ -22,8 +22,11 @@ import { toast } from "react-toastify"
 import { motion } from "framer-motion"
 import { fadeInUp, staggerContainer, fadeIn, itemTransition } from "@/lib/motion"
 import { verifyClientConnectivity, isNavigatorOnline } from "@/lib/network"
+import { useTheme } from "@/contexts/theme-context"
+import { MoodType, MoodResponse as MoodResponseType } from "@/lib/mood-colors"
+import { saveToHistory } from "@/lib/history"
 
-type MoodResponseType = "match" | "address"
+type MoodResponseTypeLocal = "match" | "address"
 
 const moods = [
   { emoji: "😊", label: "Happy", description: "Feel-good & uplifting" },
@@ -39,11 +42,30 @@ const moods = [
 
 export default function Home() {
   const router = useRouter()
+  const { updateTheme, theme } = useTheme()
   const [selectedMood, setSelectedMood] = useState<string | null>(null)
   const [textInput, setTextInput] = useState("")
-  const [moodResponse, setMoodResponse] = useState<MoodResponseType | null>(null)
+  const [moodResponse, setMoodResponse] = useState<MoodResponseTypeLocal | null>(null)
   const [showMoodResponse, setShowMoodResponse] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Handle mood selection with theme update
+  const handleMoodSelect = (mood: string) => {
+    setSelectedMood(mood)
+    sessionStorage.setItem("selectedMood", mood)
+    // Update theme immediately when mood is selected
+    updateTheme(mood as MoodType, moodResponse as MoodResponseType)
+  }
+
+  // Handle mood response selection with theme update
+  const handleMoodResponseSelect = (response: MoodResponseTypeLocal) => {
+    setMoodResponse(response)
+    sessionStorage.setItem("moodResponse", response)
+    // Update theme with mood response
+    if (selectedMood) {
+      updateTheme(selectedMood as MoodType, response as MoodResponseType)
+    }
+  }
 
   // dynamic prompt length validation
   const MAX_PROMPT_LENGTH = 50
@@ -151,6 +173,13 @@ export default function Home() {
       // Use the effective mood returned by the backend
       // This could be the selected mood, inferred mood, or empty string
       const effectiveMood = payload.mood || ""
+      
+      // Save to history immediately after getting recommendations
+      if (effectiveMood && fullResults.length > 0) {
+        saveToHistory(effectiveMood, fullResults.map((m: any) => m.id)).catch((err) => {
+          console.error("Failed to save to history:", err)
+        })
+      }
       const wasInferred = !selectedMood && payload.parsed?.inferredMood
       
       // Store mood information for results page
@@ -197,7 +226,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0B0F]">
+    <main className="min-h-screen" style={{ backgroundColor: theme.background.base, transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
       <Navbar />
       <OfflineBanner />
 
@@ -210,8 +239,8 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <motion.div className="text-center mb-12" variants={fadeInUp}>
-            <h1 className="text-5xl font-bold text-[#B549E7] mb-3">CineMood</h1>
-            <p className="text-[#A0A0A0] text-lg">How are you feeling today?</p>
+            <h1 className="text-5xl font-bold mb-3 transition-colors duration-300" style={{ color: theme.primary }}>CineMood</h1>
+            <p className="text-lg" style={{ color: theme.text.secondary }}>How are you feeling today?</p>
           </motion.div>
 
           {/* Text Input with Icon */}
@@ -219,12 +248,13 @@ export default function Home() {
             <Box
               sx={{
                 position: "relative",
-                backgroundColor: "#1A1A24",
+                backgroundColor: theme.card.bg,
                 border: "1px solid #2D2D3D",
                 borderRadius: "1rem",
                 padding: "1rem",
-                "&:hover": { borderColor: "#A855F7" },
-                "&:focus-within": { borderColor: "#A855F7" },
+                transition: "all 0.3s ease",
+                "&:hover": { borderColor: theme.primary },
+                "&:focus-within": { borderColor: theme.primary },
               }}
             >
               {/* Label with Icon */}
@@ -294,7 +324,7 @@ export default function Home() {
                   label={mood.label}
                   description={mood.description}
                   isSelected={selectedMood === mood.label}
-                  onClick={() => setSelectedMood(mood.label)}
+                  onClick={() => handleMoodSelect(mood.label)}
                 />
               </motion.div>
             ))}
@@ -309,10 +339,10 @@ export default function Home() {
             slotProps={{
               paper: {
                 sx: {
-                  backgroundColor: "#0B0B0F",
-                  color: "white",
+                  backgroundColor: theme.card.bg,
+                  color: theme.text.primary,
                   borderRadius: "1rem",
-                  border: "1px solid #2D2D3D",
+                  border: `1px solid ${theme.card.border}`,
                   boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
                   px: 1,
                 },
@@ -326,14 +356,14 @@ export default function Home() {
               },
             }}
           >
-            <DialogTitle sx={{ color: "white", fontSize: "1rem", textAlign: "center", pt: 3 }}>
+            <DialogTitle sx={{ color: theme.text.primary, fontSize: "1rem", textAlign: "center", pt: 3 }}>
               How should the movies relate to your mood?
             </DialogTitle>
             <DialogContent sx={{ display: "flex", justifyContent: "center", pb: 1 }}>
               <div style={{ width: "100%", maxWidth: 420 }}>
                 <MoodResponse
                   value={moodResponse ?? null}
-                  onChange={(val: MoodResponseType) => setMoodResponse(val)}
+                  onChange={(val: MoodResponseTypeLocal) => handleMoodResponseSelect(val)}
                   className="w-full"
                 />
                 <p style={{ color: "#9CA3AF", textAlign: "center", marginTop: 10, marginBottom: 6, fontSize: 13 }}>
@@ -380,12 +410,13 @@ export default function Home() {
                 fullWidth
                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 sx={{
-                  backgroundColor: "#A855F7",
+                  backgroundColor: theme.primary,
                   color: "white",
                   textTransform: "none",
                   minHeight: 44,
                   borderRadius: "0.75rem",
-                  "&:hover": { backgroundColor: "#9333EA" },
+                  transition: "all 0.3s ease",
+                  "&:hover": { backgroundColor: theme.primaryDark },
                   "&.Mui-disabled": {
                     backgroundColor: "#4b2b66",
                     color: "#BDB7DF",
@@ -405,7 +436,7 @@ export default function Home() {
             animate="show"
             variants={fadeIn}
           >
-            <p className="text-[#A0A0A0] text-sm">
+            <p className="text-sm" style={{ color: theme.text.secondary }}>
               Select your mood or describe it in text — AI will find the perfect movies for you
             </p>
           </motion.div>
@@ -414,7 +445,7 @@ export default function Home() {
           {(selectedMood || textInput.trim()) && !showMoodResponse && (
             <motion.div
               className="flex justify-center"
-              variants={fadeInUp}
+              // variants={fadeInUp}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -422,14 +453,15 @@ export default function Home() {
                 onClick={beginSubmit}
                 variant="contained"
                 sx={{
-                  backgroundColor: "#A855F7",
+                  backgroundColor: theme.primary,
                   color: "white",
                   textTransform: "none",
                   fontSize: "1rem",
                   fontWeight: 600,
                   padding: "12px 48px",
                   borderRadius: "0.75rem",
-                  "&:hover": { backgroundColor: "#9333EA" },
+                  transition: "all 0.3s ease",
+                  "&:hover": { backgroundColor: theme.primaryDark },
                 }}
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}

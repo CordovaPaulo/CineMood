@@ -9,13 +9,15 @@ import { Navbar } from "../../components/navbar"
 import { validatePassword } from "@/utils/passwordValidation"
 import { toast } from "react-toastify";
 import { validateEmail } from "@/utils/validateEmail"
+import { useTheme } from "@/contexts/theme-context"
 
 export default function SignupPage() {
   const router = useRouter()
+  const { theme } = useTheme()
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false) // added
+  const [loading, setLoading] = useState(false)
 
   async function checkAuth() {
     const auth = await fetch("/api/auth/", { method: "GET" })
@@ -61,13 +63,13 @@ export default function SignupPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-[#0B0B0F] flex flex-col">
+    <main className="min-h-screen flex flex-col" style={{ backgroundColor: theme.background.base, transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
       <Navbar />
 
       <div className="flex-1 flex items-center justify-center px-6 pt-20">
         <Card
           sx={{
-            backgroundColor: "#1A1A24",
+            backgroundColor: theme.card.bg,
             border: "1px solid #2D2D3D",
             borderRadius: "1rem",
             width: "100%",
@@ -75,24 +77,25 @@ export default function SignupPage() {
           }}
         >
           <CardContent className="py-12 px-8">
-            <h1 className="text-3xl font-bold text-[#b549e7] text-center mb-8">Join CineMood</h1>
+            <h1 className="text-3xl font-bold text-center mb-8" style={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>Join CineMood</h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-white text-sm font-medium mb-2">Name</label>
+              {/* Name field */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2" style={{ color: theme.text.primary }}>Name</label>
                 <TextField
                   fullWidth
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  disabled={loading} // disable during loading
+                  disabled={loading}
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      color: "white",
-                      backgroundColor: "#0B0B0F",
+                      color: theme.text.primary,
+                      backgroundColor: theme.background.base,
                       borderRadius: "0.5rem",
-                      "& fieldset": { borderColor: "#2D2D3D" },
-                      "&:hover fieldset": { borderColor: "#b549e7" },
-                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
+                      "& fieldset": { borderColor: theme.card.border },
+                      "&:hover fieldset": { borderColor: theme.primary },
+                      "&.Mui-focused fieldset": { borderColor: theme.primary },
                     },
                   }}
                 />
@@ -108,12 +111,12 @@ export default function SignupPage() {
                   disabled={loading} // disable during loading
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      color: "white",
-                      backgroundColor: "#0B0B0F",
+                      color: theme.text.primary,
+                      backgroundColor: theme.background.base,
                       borderRadius: "0.5rem",
-                      "& fieldset": { borderColor: "#2D2D3D" },
-                      "&:hover fieldset": { borderColor: "#b549e7" },
-                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
+                      "& fieldset": { borderColor: theme.card.border },
+                      "&:hover fieldset": { borderColor: theme.primary },
+                      "&.Mui-focused fieldset": { borderColor: theme.primary },
                     },
                   }}
                 />
@@ -126,15 +129,15 @@ export default function SignupPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading} // disable during loading
+                  disabled={loading}
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      color: "white",
-                      backgroundColor: "#0B0B0F",
+                      color: theme.text.primary,
+                      backgroundColor: theme.background.base,
                       borderRadius: "0.5rem",
-                      "& fieldset": { borderColor: "#2D2D3D" },
-                      "&:hover fieldset": { borderColor: "#b549e7" },
-                      "&.Mui-focused fieldset": { borderColor: "#b549e7" },
+                      "& fieldset": { borderColor: theme.card.border },
+                      "&:hover fieldset": { borderColor: theme.primary },
+                      "&.Mui-focused fieldset": { borderColor: theme.primary },
                     },
                   }}
                 />
@@ -147,7 +150,7 @@ export default function SignupPage() {
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 sx={{
-                  backgroundColor: "#b549e7",
+                  backgroundColor: theme.primary,
                   color: "white",
                   textTransform: "none",
                   fontSize: "1rem",
@@ -155,16 +158,17 @@ export default function SignupPage() {
                   padding: "12px",
                   borderRadius: "0.5rem",
                   marginTop: "1rem",
-                  "&:hover": { backgroundColor: "#9333EA" },
+                  transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": { backgroundColor: theme.primaryDark },
                 }}
               >
                 {loading ? "Signing up..." : "Sign Up"}
               </Button>
             </form>
 
-            <p className="text-center text-[#A0A0A0] text-sm mt-6">
+            <p className="text-center text-sm mt-6" style={{ color: theme.text.secondary }}>
               Already have an account?{" "}
-              <Link href="/" className="text-[#b549e7] hover:underline">
+              <Link href="/" className="hover:underline" style={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                 Login
               </Link>
             </p>
