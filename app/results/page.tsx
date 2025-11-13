@@ -11,6 +11,7 @@ import { motion } from "framer-motion"
 import { fadeInUp, fadeIn, itemTransition } from "@/lib/motion"
 import { isNavigatorOnline } from "@/lib/network"
 import { toast } from "react-toastify"
+import { saveToHistory } from "@/lib/history"
 
 type Movie = {
   id: number
@@ -39,6 +40,7 @@ export default function ResultsPage() {
   const [allResults, setAllResults] = useState<Movie[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [parsedData, setParsedData] = useState<ParsedData | null>(null)
+  const [historySaved, setHistorySaved] = useState(false)
 
   // helper to pick a random sample of up to 5 from a list and persist the shown list
   function pickRandomFive(src?: Movie[]) {
@@ -66,7 +68,7 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
-      checkAuth()
+    checkAuth()
     let mounted = true
     const init = () => {
       setIsLoading(true)
@@ -115,6 +117,14 @@ export default function ResultsPage() {
           } catch {}
           const sample = pickRandomFive(transientAll)
           setMovies(sample)
+          
+          // Save to history
+          const mood = sessionStorage.getItem("selectedMood") || ""
+          if (mood && !historySaved) {
+            saveToHistory(mood, transientAll.map((m: Movie) => m.id)).then(() => {
+              setHistorySaved(true)
+            })
+          }
         }
         try {
           if (w) {
@@ -135,6 +145,14 @@ export default function ResultsPage() {
           } catch {}
           const sample = pickRandomFive(transient)
           setMovies(sample)
+          
+          // Save to history
+          const mood = sessionStorage.getItem("selectedMood") || ""
+          if (mood && !historySaved) {
+            saveToHistory(mood, transient.map((m: Movie) => m.id)).then(() => {
+              setHistorySaved(true)
+            })
+          }
         }
         try {
           if (w) delete w.__CINEMOOD_RESULTS__
@@ -152,7 +170,6 @@ export default function ResultsPage() {
           if (Array.isArray(parsedAll) && parsedAll.length > 0) {
             if (mounted) {
               setAllResults(parsedAll)
-              // pick a fresh sample each visit for variety
               const sample = pickRandomFive(parsedAll)
               setMovies(sample.length ? sample : parsedAll.slice(0, Math.min(5, parsedAll.length)))
             }
@@ -179,7 +196,7 @@ export default function ResultsPage() {
     return () => {
       mounted = false
     }
-  }, [router])
+  }, [router, historySaved])
 
   const moodDescriptions: Record<string, string> = useMemo(
     () => ({
@@ -238,6 +255,47 @@ export default function ResultsPage() {
     setTimeout(performRefresh, 2000)
   }
 
+  // Save only the currently shown movies (the sample of up to 5)
+  const handleAddFavorites = async () => {
+    await checkAuth()
+
+    if (!isNavigatorOnline()) {
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 2500)
+      alert("You’re offline. Reconnect to save favorites.")
+      return
+    }
+
+    if (!movies || movies.length === 0) {
+      toast.info("No movies to save.")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const movieIds = movies.map((m) => String(m.id))
+      const payload = { mood: selectedMood || "", movieIds }
+
+      const res = await fetch("/api/recommendations/favorite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data?.error || "Failed to save favorites")
+      } else {
+        toast.success("Saved current picks to favorites")
+      }
+    } catch (e) {
+      console.error("Save favorites error:", e)
+      toast.error("Failed to save favorites")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
   useEffect(() => {
     // If user lands here offline, we’ll prefer cached results and show info once
     if (typeof window !== "undefined" && !navigator.onLine) {
@@ -342,6 +400,19 @@ export default function ResultsPage() {
                   }}
                 >
                   Refresh Picks
+                </Button>
+                <Button
+                  onClick={handleAddFavorites}
+                  variant="contained"
+                  disabled={isLoading || (movies?.length ?? 0) === 0}
+                  sx={{
+                    backgroundColor: "#A855F7",
+                    color: "white",
+                    textTransform: "none",
+                    "&:hover": { backgroundColor: "#8B46CF" },
+                  }}
+                >
+                  Add to Favorites
                 </Button>
               </div>
             </div>

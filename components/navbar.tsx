@@ -76,6 +76,40 @@ export function Navbar() {
             </Button>
           </Link>
 
+          <Link href='/favorites'>
+            <Button
+              variant={pathname === "/favorites" ? "contained" : "text"}
+              sx={{
+                color: pathname === "/favorites" ? "white" : "#A0A0A0",
+                backgroundColor: pathname === "/favorites" ? "#b549e7" : "transparent",
+                textTransform: "none",
+                fontSize: "0.95rem",
+                "&:hover": {
+                  backgroundColor: pathname === "/favorites" ? "#9333EA" : "rgba(168, 85, 247, 0.1)",
+                },
+              }}
+            >
+              Favorites
+            </Button>
+          </Link>
+
+          <Link href='/history'>
+            <Button
+              variant={pathname === "/history" ? "contained" : "text"}
+              sx={{
+                color: pathname === "/history" ? "white" : "#A0A0A0",
+                backgroundColor: pathname === "/history" ? "#b549e7" : "transparent",
+                textTransform: "none",
+                fontSize: "0.95rem",
+                "&:hover": {
+                  backgroundColor: pathname === "/history" ? "#9333EA" : "rgba(168, 85, 247, 0.1)",
+                },
+              }}
+            >
+              History
+            </Button>
+          </Link>
+
           <Link href="/about">
             <Button
               variant="text"

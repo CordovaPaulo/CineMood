@@ -2,7 +2,7 @@ import { jwtVerify, type JWTPayload } from "jose"
 import { cookies as nextCookies } from "next/headers"
 
 export type AuthUser = {
-  id?: string
+  userId?: string
   name?: string
   email?: string
 }
@@ -41,7 +41,7 @@ export function normalizeUser(payload: JWTPayload): AuthUser {
     (payload.given_name as string) ??
     (email ? email.split("@")[0] : undefined)
   return {
-    id: (payload.sub as string) || undefined,
+    userId: (payload.sub as string) || undefined,
     name: name || undefined,
     email,
   }

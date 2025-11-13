@@ -3,9 +3,44 @@ import { discoverMovies } from "../../services/tmdb";
 import { rerankMovies } from "../../services/rerank";
 import { parseUserInput } from "@/services/gemini";
 import { HttpError } from "@/app/services/http";
+import { verifyToken, decodeToken } from "@/lib/jwt";
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication (same pattern as auth route)
+    const cookieStore = await cookies();
+    const tokenCookie = cookieStore.get("cinemood_auth_token");
+    
+    if (!tokenCookie) {
+      return NextResponse.json(
+        { message: "Unauthorized - Please log in first", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    const token = tokenCookie.value;
+    const verification = await Promise.resolve(verifyToken(token));
+
+    if (!verification) {
+      return NextResponse.json(
+        { message: "Unauthorized - Invalid token", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    // Decode token to get user data
+    const decoded = decodeToken(token);
+    if (!decoded || typeof decoded !== "object" || !("userId" in decoded)) {
+      return NextResponse.json(
+        { message: "Unauthorized - Invalid token payload", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    const userId = (decoded as any).userId;
+    const username = (decoded as any).username;
+
     const body = await request.json().catch(() => ({} as any));
     const { text = "", mood = "", moodResponse = "match" } = body;
 
@@ -72,10 +107,12 @@ export async function POST(request: NextRequest) {
 
     const candidates = await discoverMovies(parsed, { pages: 5 });
 
+    const effectiveMood = mood || parsed.inferredMood || "";
+
     const ranked = rerankMovies(candidates, {
       userText: text,
       parsed,
-      mood,
+      mood: effectiveMood,
       moodResponse: parsed.moodResponse || normalizedMoodResponse,
       limit: 20,
     });
@@ -85,6 +122,9 @@ export async function POST(request: NextRequest) {
         results: ranked,
         parsed,
         moodResponse: parsed.moodResponse || normalizedMoodResponse,
+        mood: effectiveMood,
+        userId, // Include userId for client-side history saving
+        username, // Optional: include username if needed
       },
       { status: 200 }
     );

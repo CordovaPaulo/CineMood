@@ -37,44 +37,6 @@ const moods = [
   { emoji: "🔍", label: "Mysterious", description: "Intriguing & puzzling" },
 ]
 
-// Helper function to infer mood from text
-function inferMoodFromText(text: string): string | null {
-  const TEXT_TONE_TO_MOOD: Array<{ key: string; mood: string }> = [
-    { key: "sad", mood: "Sad" },
-    { key: "down", mood: "Sad" },
-    { key: "blue", mood: "Sad" },
-    { key: "depressed", mood: "Sad" },
-    { key: "angry", mood: "Angry" },
-    { key: "mad", mood: "Angry" },
-    { key: "frustrated", mood: "Angry" },
-    { key: "furious", mood: "Angry" },
-    { key: "scared", mood: "Scared" },
-    { key: "afraid", mood: "Scared" },
-    { key: "anxious", mood: "Scared" },
-    { key: "tense", mood: "Scared" },
-    { key: "excited", mood: "Excited" },
-    { key: "thrilled", mood: "Excited" },
-    { key: "pumped", mood: "Excited" },
-    { key: "happy", mood: "Happy" },
-    { key: "joyful", mood: "Happy" },
-    { key: "cheerful", mood: "Happy" },
-    { key: "relaxed", mood: "Relaxed" },
-    { key: "calm", mood: "Relaxed" },
-    { key: "chill", mood: "Relaxed" },
-    { key: "nostalgic", mood: "Mysterious" },
-    { key: "romantic", mood: "Romantic" },
-    { key: "in love", mood: "Romantic" },
-    { key: "adventurous", mood: "Adventurous" },
-    { key: "mysterious", mood: "Mysterious" },
-  ];
-
-  const t = (text || "").toLowerCase();
-  for (const { key, mood } of TEXT_TONE_TO_MOOD) {
-    if (t.includes(key)) return mood;
-  }
-  return null;
-}
-
 export default function Home() {
   const router = useRouter()
   const [selectedMood, setSelectedMood] = useState<string | null>(null)
@@ -86,7 +48,6 @@ export default function Home() {
   // dynamic prompt length validation
   const MAX_PROMPT_LENGTH = 50
 
-  // replace beginSubmit to defer ambiguity detection to Gemini
   const beginSubmit = () => {
     // enforce prompt length before attempting submission
     if ((textInput || "").trim().length > MAX_PROMPT_LENGTH) {
@@ -138,7 +99,8 @@ export default function Home() {
         return router.push("/")
       }
 
-      // avoid reusing the name `payload` (response uses `payload`)
+      // Send only explicitly selected mood (or empty string if none selected)
+      // Backend will infer mood from text if needed
       const requestBody: any = {
         mood: selectedMood || "",
         moodResponse: moodResponse || "",
@@ -186,14 +148,18 @@ export default function Home() {
         sessionStorage.setItem("recommendations_all", JSON.stringify(fullResults))
       } catch {}
 
-      // Determine the effective mood to display
-      let effectiveMood = selectedMood || inferMoodFromText(textInput) || ""
+      // Use the effective mood returned by the backend
+      // This could be the selected mood, inferred mood, or empty string
+      const effectiveMood = payload.mood || ""
+      const wasInferred = !selectedMood && payload.parsed?.inferredMood
       
-      // If moodResponse is "address", modify the mood display
+      // Store mood information for results page
       if (moodResponse === "address" && effectiveMood) {
-        // Store both the original and the addressing mood
         sessionStorage.setItem("originalMood", effectiveMood)
         sessionStorage.setItem("addressingMood", "true")
+      }
+      if (wasInferred) {
+        sessionStorage.setItem("inferredMood", "true")
       }
 
       sessionStorage.setItem("parsedData", JSON.stringify(payload.parsed || {}))
@@ -248,7 +214,7 @@ export default function Home() {
             <p className="text-[#A0A0A0] text-lg">How are you feeling today?</p>
           </motion.div>
 
-          {/* Text Input with Icon and Badge */}
+          {/* Text Input with Icon */}
           <motion.div className="mb-12" variants={fadeInUp}>
             <Box
               sx={{
@@ -267,17 +233,6 @@ export default function Home() {
                   <AutoAwesome sx={{ color: "#A855F7", fontSize: "1.25rem" }} />
                   <span className="text-white text-sm font-medium">Describe how you're feeling (optional)</span>
                 </div>
-                {/* <Chip
-                  label="Voice input supported"
-                  size="small"
-                  sx={{
-                    backgroundColor: "transparent",
-                    border: "1px solid #2D2D3D",
-                    color: "#A0A0A0",
-                    fontSize: "0.75rem",
-                    height: "24px",
-                  }}
-                /> */}
               </div>
 
               {/* Text Input */}
@@ -317,7 +272,9 @@ export default function Home() {
               </div>
               <div style={{ marginTop: 8 }}>
                 <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
-                  You can also find movies using only text — we’ll still ask how they should relate to your mood.
+                  {selectedMood 
+                    ? "Add details to refine your search, or submit with just your mood selection."
+                    : "Describe your mood in text — we'll detect it and ask how movies should relate to it."}
                 </p>
               </div>
             </Box>
@@ -343,7 +300,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Centered modal for MoodResponse (uses slotProps for MUI v6 compatibility) */}
+          {/* Mood Response Dialog */}
           <Dialog
             open={showMoodResponse}
             onClose={() => setShowMoodResponse(false)}
@@ -380,7 +337,9 @@ export default function Home() {
                   className="w-full"
                 />
                 <p style={{ color: "#9CA3AF", textAlign: "center", marginTop: 10, marginBottom: 6, fontSize: 13 }}>
-                  Choose whether you want movies that match your mood or help address it.
+                  {selectedMood 
+                    ? "Choose whether you want movies that match your mood or help address it."
+                    : "We'll detect your mood from your description and apply your preference."}
                 </p>
               </div>
             </DialogContent>
@@ -389,7 +348,6 @@ export default function Home() {
                 justifyContent: "center",
                 pb: 3,
                 gap: 2,
-                // stack buttons on small screens, row on larger screens
                 flexDirection: { xs: "column", sm: "row" },
                 px: { xs: 3, sm: 0 },
                 width: "100%",
@@ -428,7 +386,6 @@ export default function Home() {
                   minHeight: 44,
                   borderRadius: "0.75rem",
                   "&:hover": { backgroundColor: "#9333EA" },
-                  // clearer disabled styles
                   "&.Mui-disabled": {
                     backgroundColor: "#4b2b66",
                     color: "#BDB7DF",
@@ -449,7 +406,7 @@ export default function Home() {
             variants={fadeIn}
           >
             <p className="text-[#A0A0A0] text-sm">
-              Select your mood and let AI find the perfect movies for you
+              Select your mood or describe it in text — AI will find the perfect movies for you
             </p>
           </motion.div>
 
@@ -484,7 +441,7 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* Full-screen loader while finding movies */}
+      {/* Full-screen loader */}
       <Backdrop open={loading} sx={{ color: "#fff", zIndex: (t) => t.zIndex.drawer + 1 }}>
         <CircularProgress color="inherit" />
         <span style={{ marginLeft: 12 }}>Finding movies for your mood...</span>

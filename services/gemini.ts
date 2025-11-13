@@ -4,81 +4,588 @@ const apiKey = process.env.GEMINI_API_KEY as string;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const MOOD_BRIDGE: Record<string, { match: string[]; address: string[] }> = {
-  Happy: { match: ["Comedy", "Family"], address: ["Drama", "Romance"] },
-  Sad: { match: ["Drama", "Romance"], address: ["Comedy", "Feel-good"] },
-  Romantic: { match: ["Romance", "Drama"], address: ["Comedy", "Adventure"] },
-  Excited: { match: ["Action", "Adventure"], address: ["Drama", "Drama"] },
-  Relaxed: { match: ["Drama", "Romance"], address: ["Comedy", "Adventure"] },
-  Angry: { match: ["Action", "Crime"], address: ["Drama", "Calming"] },
-  Scared: { match: ["Horror", "Thriller"], address: ["Family", "Comedy"] },
-  Adventurous: { match: ["Adventure", "Fantasy"], address: ["Drama", "Romance"] },
-  Mysterious: { match: ["Mystery", "Thriller"], address: ["Comedy", "Feel-good"] },
-  // concise extras to help parser generalize
-  Nostalgic: { match: ["Drama", "Period"], address: ["Comedy", "Family"] },
-  Curious: { match: ["Documentary", "Mystery"], address: ["Comedy", "Adventure"] },
-  Wholesome: { match: ["Family", "Drama"], address: ["Thriller", "Horror"] },
-  Cozy: { match: ["Romance", "Drama"], address: ["Action", "Adventure"] },
-  Edgy: { match: ["Crime", "Thriller"], address: ["Comedy", "Family"] },
+  Happy: { 
+    match: ["Comedy", "Family", "Animation", "Musical", "Adventure"], 
+    address: ["Drama", "Romance", "Documentary", "History", "War"] 
+  },
+  Sad: { 
+    match: ["Drama", "Romance", "War", "History", "Music"], 
+    address: ["Comedy", "Family", "Animation", "Adventure", "Fantasy"] 
+  },
+  Romantic: { 
+    match: ["Romance", "Drama", "Musical", "Comedy"], 
+    address: ["Action", "Adventure", "Thriller", "Science Fiction", "Horror"] 
+  },
+  Excited: { 
+    match: ["Action", "Adventure", "Thriller", "Science Fiction", "Fantasy"], 
+    address: ["Drama", "Romance", "Documentary", "History"] 
+  },
+  Relaxed: { 
+    match: ["Drama", "Romance", "Documentary", "Music", "Animation"], 
+    address: ["Action", "Comedy", "Adventure", "Thriller", "Horror"] 
+  },
+  Angry: { 
+    match: ["Action", "Crime", "Thriller", "War", "Horror"], 
+    address: ["Comedy", "Drama", "Family", "Romance", "Animation"] 
+  },
+  Scared: { 
+    match: ["Horror", "Thriller", "Mystery", "Crime"], 
+    address: ["Family", "Comedy", "Animation", "Romance", "Adventure"] 
+  },
+  Adventurous: { 
+    match: ["Adventure", "Fantasy", "Action", "Science Fiction", "Western"], 
+    address: ["Drama", "Romance", "Documentary", "History"] 
+  },
+  Mysterious: { 
+    match: ["Mystery", "Thriller", "Crime", "Science Fiction", "Horror"], 
+    address: ["Comedy", "Family", "Romance", "Animation"] 
+  },
+  Nostalgic: { 
+    match: ["Drama", "History", "War", "Western", "Music"], 
+    address: ["Comedy", "Family", "Science Fiction", "Fantasy"] 
+  },
+  Curious: { 
+    match: ["Documentary", "Mystery", "Science Fiction", "History", "Thriller"], 
+    address: ["Comedy", "Adventure", "Fantasy", "Romance"] 
+  },
+  Wholesome: { 
+    match: ["Family", "Animation", "Drama", "Comedy", "Fantasy"], 
+    address: ["Thriller", "Horror", "Crime", "War", "Action"] 
+  },
+  Cozy: { 
+    match: ["Romance", "Drama", "Comedy", "Family", "Animation"], 
+    address: ["Action", "Adventure", "Horror", "Thriller", "War"] 
+  },
+  Edgy: { 
+    match: ["Crime", "Thriller", "Horror", "War", "Mystery"], 
+    address: ["Comedy", "Family", "Animation", "Musical", "Romance"] 
+  },
+  Bored: { 
+    match: ["Action", "Adventure", "Comedy", "Thriller", "Science Fiction"], 
+    address: ["Drama", "Documentary", "Romance", "History"] 
+  },
+  Motivated: { 
+    match: ["Drama", "Documentary", "Action", "Adventure", "History"], 
+    address: ["Horror", "Thriller", "Romance", "Comedy"] 
+  },
+  Lonely: { 
+    match: ["Romance", "Drama", "Comedy", "Family"], 
+    address: ["Action", "Adventure", "Horror", "Thriller"] 
+  },
+  Hopeful: { 
+    match: ["Drama", "Family", "Animation", "Fantasy", "Adventure"], 
+    address: ["Horror", "Thriller", "Crime", "War"] 
+  },
+  Melancholic: { 
+    match: ["Drama", "Romance", "War", "History", "Music"], 
+    address: ["Comedy", "Animation", "Family", "Adventure", "Fantasy"] 
+  },
+  Playful: { 
+    match: ["Comedy", "Animation", "Family", "Adventure", "Fantasy"], 
+    address: ["Drama", "Horror", "Thriller", "War", "Crime"] 
+  },
 };
 
-// small set of short keyword hints per mood to steer single-word keywords (match vs address)
+// Expanded keyword hints with more nuanced suggestions
 const MOOD_KEYWORD_HINTS: Record<string, { match: string[]; address: string[] }> = {
-  Happy: { match: ["joy","uplift","laugh","warm"], address: ["melancholy","quiet","introspect","slow"] },
-  Sad: { match: ["tearjerker","melancholy","poignant","blue"], address: ["uplift","comedy","feelgood","sunny"] },
-  Romantic: { match: ["love","chemistry","kiss","romance"], address: ["adventure","action","wholesome","comic"] },
-  Excited: { match: ["thrill","adrenaline","fast","chase"], address: ["calm","slow","quiet","drama"] },
-  Relaxed: { match: ["calm","soothing","gentle","ambient"], address: ["energetic","loud","fast","thrill"] },
-  Angry: { match: ["rage","vengeance","conflict","intense"], address: ["calm","healing","forgiveness","gentle"] },
-  Scared: { match: ["terror","jumpscare","dark","creepy"], address: ["wholesome","family","cozy","light"] },
-  Adventurous: { match: ["quest","epic","journey","explore"], address: ["intimate","quiet","domestic","slice"] },
-  Mysterious: { match: ["puzzle","twist","enigmatic","cryptic"], address: ["clear","straightforward","feelgood","funny"] },
-  Nostalgic: { match: ["memory","retro","period","nostalgia"], address: ["modern","fresh","contemporary","bright"] },
-  Curious: { match: ["discover","explore","inquire","investigate"], address: ["relax","escape","fantasy","romance"] },
-  Wholesome: { match: ["gentle","heartwarming","uplift","family"], address: ["dark","gritty","thriller","horror"] },
-  Cozy: { match: ["warm","comfort","snug","slow"], address: ["adrenaline","epic","action","thrill"] },
-  Edgy: { match: ["gritty","raw","provocative","noir"], address: ["cheerful","light","comedy","wholesome"] },
+  Happy: { 
+    match: [
+      "joy", "uplift", "laugh", "warm", "cheerful", "bright", "sunny", "delight", 
+      "celebration", "fun", "smile", "lighthearted", "positive", "merry", "gleeful",
+      "jubilant", "festive", "buoyant", "radiant", "bliss"
+    ], 
+    address: [
+      "melancholy", "quiet", "introspect", "slow", "somber", "reflective", "serious", 
+      "contemplative", "pensive", "subdued", "muted", "thoughtful", "solemn", "grave",
+      "profound", "deep", "heavy"
+    ] 
+  },
+  Sad: { 
+    match: [
+      "tearjerker", "melancholy", "poignant", "blue", "grief", "loss", "heartbreak", 
+      "emotional", "moving", "bittersweet", "sorrow", "weep", "cry", "tragic", "mournful",
+      "devastating", "painful", "anguish", "longing", "yearning", "despair"
+    ], 
+    address: [
+      "uplift", "comedy", "feelgood", "sunny", "cheerful", "light", "hopeful", "inspiring", 
+      "joyful", "bright", "optimistic", "heartwarming", "encouraging", "positive", "happy",
+      "spirited", "vivacious", "lively"
+    ] 
+  },
+  Romantic: { 
+    match: [
+      "love", "chemistry", "kiss", "romance", "passion", "relationship", "intimate", 
+      "tender", "soulmate", "heartfelt", "affection", "desire", "devotion", "adore",
+      "sweetheart", "amour", "courtship", "embrace", "Valentine", "couple", "dating"
+    ], 
+    address: [
+      "adventure", "action", "wholesome", "comic", "friendship", "independent", "solo", 
+      "platonic", "career", "ambition", "thriller", "suspense", "mystery", "discovery",
+      "exploration", "journey"
+    ] 
+  },
+  Excited: { 
+    match: [
+      "thrill", "adrenaline", "fast", "chase", "explosive", "intense", "dynamic", 
+      "energetic", "rush", "pulse", "electrifying", "exhilarating", "pumped", "hyper",
+      "kinetic", "frantic", "turbulent", "wild", "fierce", "vigorous", "powerful"
+    ], 
+    address: [
+      "calm", "slow", "quiet", "drama", "peaceful", "gentle", "meditative", "subdued",
+      "tranquil", "serene", "soothing", "relaxed", "mellow", "soft", "easy", "subtle",
+      "contemplative", "restful"
+    ] 
+  },
+  Relaxed: { 
+    match: [
+      "calm", "soothing", "gentle", "ambient", "peaceful", "serene", "tranquil", 
+      "mellow", "soft", "easy", "laid-back", "unwind", "chill", "zen", "placid",
+      "restful", "comfortable", "cozy", "leisurely", "easygoing", "unhurried"
+    ], 
+    address: [
+      "energetic", "loud", "fast", "thrill", "intense", "chaotic", "explosive", "dynamic",
+      "frenetic", "hectic", "wild", "turbulent", "aggressive", "forceful", "powerful",
+      "vigorous", "exciting"
+    ] 
+  },
+  Angry: { 
+    match: [
+      "rage", "vengeance", "conflict", "intense", "fury", "justice", "retribution", 
+      "confrontation", "rebellion", "fight", "wrathful", "hostile", "aggressive", "fierce",
+      "violent", "brutal", "savage", "ruthless", "defiant", "revolt", "uprising"
+    ], 
+    address: [
+      "calm", "healing", "forgiveness", "gentle", "peaceful", "understanding", 
+      "reconciliation", "harmony", "empathy", "compassion", "kindness", "patience",
+      "serenity", "tranquil", "soothing", "therapeutic", "restorative"
+    ] 
+  },
+  Scared: { 
+    match: [
+      "terror", "jumpscare", "dark", "creepy", "suspense", "eerie", "haunting", 
+      "nightmare", "dread", "spine", "chilling", "sinister", "ominous", "macabre",
+      "horrifying", "frightening", "spooky", "unsettling", "disturbing", "menacing", "ghastly"
+    ], 
+    address: [
+      "wholesome", "family", "cozy", "light", "cheerful", "safe", "comforting", "uplifting",
+      "reassuring", "warm", "gentle", "pleasant", "delightful", "joyful", "bright",
+      "sunny", "happy", "peaceful"
+    ] 
+  },
+  Adventurous: { 
+    match: [
+      "quest", "epic", "journey", "explore", "discovery", "expedition", "treasure", 
+      "voyage", "odyssey", "frontier", "pioneer", "wanderlust", "explorer", "safari",
+      "trail", "wilderness", "uncharted", "daring", "bold", "heroic", "legendary"
+    ], 
+    address: [
+      "intimate", "quiet", "domestic", "slice", "simple", "mundane", "routine", "familiar",
+      "ordinary", "everyday", "homely", "settled", "local", "neighborhood", "suburban",
+      "comfortable", "predictable"
+    ] 
+  },
+  Mysterious: { 
+    match: [
+      "puzzle", "twist", "enigmatic", "cryptic", "detective", "clue", "whodunit", 
+      "conspiracy", "secret", "riddle", "intrigue", "obscure", "shadowy", "covert",
+      "hidden", "unknown", "cipher", "enigma", "labyrinth", "maze", "suspense"
+    ], 
+    address: [
+      "clear", "straightforward", "feelgood", "funny", "obvious", "simple", "transparent", 
+      "lighthearted", "open", "direct", "uncomplicated", "plain", "evident", "apparent",
+      "explicit", "frank", "honest"
+    ] 
+  },
+  Nostalgic: { 
+    match: [
+      "memory", "retro", "period", "nostalgia", "vintage", "throwback", "childhood", 
+      "classic", "timeless", "tradition", "heritage", "bygone", "yesteryear", "old-fashioned",
+      "reminisce", "sentimental", "wistful", "antiquated", "golden age", "historical", "legacy"
+    ], 
+    address: [
+      "modern", "fresh", "contemporary", "bright", "futuristic", "innovative", "current", 
+      "trendy", "new", "cutting-edge", "avant-garde", "progressive", "forward-thinking",
+      "state-of-the-art", "latest", "now"
+    ] 
+  },
+  Curious: { 
+    match: [
+      "discover", "explore", "inquire", "investigate", "learn", "reveal", "uncover", 
+      "examine", "study", "research", "probe", "quest", "search", "analyze", "scrutinize",
+      "delve", "excavate", "intellectual", "scientific", "academic", "educational"
+    ], 
+    address: [
+      "relax", "escape", "fantasy", "romance", "simple", "familiar", "predictable", 
+      "comfortable", "entertainment", "leisure", "fun", "casual", "lighthearted",
+      "effortless", "undemanding", "accessible"
+    ] 
+  },
+  Wholesome: { 
+    match: [
+      "gentle", "heartwarming", "uplift", "family", "pure", "innocent", "kind", 
+      "goodness", "caring", "sweet", "tender", "nurturing", "compassionate", "loving",
+      "benevolent", "altruistic", "virtuous", "noble", "sincere", "genuine", "authentic"
+    ], 
+    address: [
+      "dark", "gritty", "thriller", "horror", "violent", "intense", "edgy", "provocative",
+      "harsh", "brutal", "raw", "cynical", "bleak", "disturbing", "controversial",
+      "shocking", "graphic"
+    ] 
+  },
+  Cozy: { 
+    match: [
+      "warm", "comfort", "snug", "slow", "intimate", "homey", "safe", "relaxing", 
+      "soft", "gentle", "peaceful", "cocooning", "nest", "blanket", "fireplace",
+      "cuddle", "snuggle", "sheltered", "protected", "secure", "inviting"
+    ], 
+    address: [
+      "adrenaline", "epic", "action", "thrill", "explosive", "grand", "intense", "chaotic",
+      "sweeping", "spectacular", "massive", "overwhelming", "dramatic", "extreme",
+      "turbulent", "fierce", "powerful"
+    ] 
+  },
+  Edgy: { 
+    match: [
+      "gritty", "raw", "provocative", "noir", "dark", "controversial", "bold", "daring", 
+      "subversive", "rebel", "unconventional", "radical", "avant-garde", "transgressive",
+      "underground", "countercultural", "anarchic", "defiant", "audacious", "shocking"
+    ], 
+    address: [
+      "cheerful", "light", "comedy", "wholesome", "innocent", "safe", "conventional", 
+      "mainstream", "traditional", "family-friendly", "pleasant", "polite", "proper",
+      "respectable", "clean", "sanitized"
+    ] 
+  },
+  Bored: { 
+    match: [
+      "exciting", "engaging", "captivating", "dynamic", "stimulating", "gripping", 
+      "riveting", "unpredictable", "thrilling", "absorbing", "compelling", "mesmerizing",
+      "fascinating", "enthralling", "spellbinding", "addictive", "page-turner", "edge-of-seat"
+    ], 
+    address: [
+      "slow", "quiet", "contemplative", "meditative", "subtle", "minimalist", "gentle",
+      "understated", "nuanced", "reflective", "introspective", "philosophical", "cerebral",
+      "artistic", "poetic"
+    ] 
+  },
+  Motivated: { 
+    match: [
+      "inspiring", "triumph", "achievement", "determination", "success", "perseverance", 
+      "overcome", "resilience", "victory", "champion", "hero", "ambitious", "driven",
+      "goal", "pursuit", "struggle", "comeback", "underdog", "transformation", "growth"
+    ], 
+    address: [
+      "relaxing", "escapist", "fantastical", "dreamy", "whimsical", "lighthearted",
+      "carefree", "leisurely", "indulgent", "pleasurable", "entertaining", "amusing",
+      "diverting", "recreational"
+    ] 
+  },
+  Lonely: { 
+    match: [
+      "connection", "companionship", "friendship", "together", "bond", "relationship", 
+      "warmth", "belonging", "community", "family", "unite", "reunion", "solidarity",
+      "kinship", "fellowship", "alliance", "partnership", "togetherness", "camaraderie"
+    ], 
+    address: [
+      "solitude", "independence", "self", "solo", "isolation", "introspective", "alone",
+      "individual", "autonomous", "self-reliant", "self-sufficient", "hermit", "recluse",
+      "detached", "separate"
+    ] 
+  },
+  Hopeful: { 
+    match: [
+      "optimistic", "uplifting", "inspiring", "bright", "renewal", "redemption", "promise", 
+      "possibility", "faith", "belief", "aspiration", "dream", "vision", "future",
+      "potential", "opportunity", "chance", "new beginning", "rebirth", "revival"
+    ], 
+    address: [
+      "cynical", "dark", "pessimistic", "bleak", "harsh", "grim", "despairing", "hopeless",
+      "nihilistic", "fatalistic", "dystopian", "apocalyptic", "tragic", "dire", "somber"
+    ] 
+  },
+  Melancholic: { 
+    match: [
+      "wistful", "yearning", "longing", "bittersweet", "reflective", "pensive", "somber", 
+      "mournful", "elegiac", "plaintive", "nostalgic", "saudade", "doleful", "rueful",
+      "regretful", "forlorn", "sorrowful", "blue", "contemplative", "introspective"
+    ], 
+    address: [
+      "upbeat", "energetic", "vibrant", "lively", "cheerful", "spirited", "dynamic",
+      "exuberant", "buoyant", "vivacious", "animated", "effervescent", "peppy", "zippy",
+      "bouncy", "bright", "sunny"
+    ] 
+  },
+  Playful: { 
+    match: [
+      "fun", "whimsical", "silly", "quirky", "imaginative", "creative", "colorful", 
+      "lighthearted", "amusing", "mischievous", "cheeky", "frisky", "jovial", "jocular",
+      "witty", "humorous", "entertaining", "delightful", "fanciful", "fantastical", "zany"
+    ], 
+    address: [
+      "serious", "somber", "heavy", "intense", "grim", "dramatic", "weighty", "grave",
+      "profound", "consequential", "substantial", "meaningful", "significant", "important",
+      "critical", "urgent"
+    ] 
+  },
 };
 
-// +++ NEW: lightweight tone → mood inference to guide hints when user didn't pick a mood +++
+// Expanded text-to-mood inference with more coverage
 const TEXT_TONE_TO_MOOD: Array<{ key: string; mood: keyof typeof MOOD_BRIDGE }> = [
+  // Sadness spectrum (expanded)
   { key: "sad", mood: "Sad" },
   { key: "down", mood: "Sad" },
   { key: "blue", mood: "Sad" },
   { key: "depressed", mood: "Sad" },
+  { key: "heartbroken", mood: "Sad" },
+  { key: "grief", mood: "Sad" },
+  { key: "mourning", mood: "Sad" },
+  { key: "sorrowful", mood: "Sad" },
+  { key: "devastated", mood: "Sad" },
+  { key: "miserable", mood: "Sad" },
+  { key: "dejected", mood: "Sad" },
+  { key: "despondent", mood: "Sad" },
+  { key: "melancholic", mood: "Melancholic" },
+  { key: "melancholy", mood: "Melancholic" },
+  { key: "wistful", mood: "Melancholic" },
+  { key: "bittersweet", mood: "Melancholic" },
+  { key: "nostalgic", mood: "Nostalgic" },
+  { key: "pensive", mood: "Melancholic" },
+  { key: "reflective", mood: "Melancholic" },
+  { key: "contemplative", mood: "Melancholic" },
+  
+  // Anger spectrum (expanded)
   { key: "angry", mood: "Angry" },
   { key: "mad", mood: "Angry" },
   { key: "frustrated", mood: "Angry" },
   { key: "furious", mood: "Angry" },
+  { key: "rage", mood: "Angry" },
+  { key: "annoyed", mood: "Angry" },
+  { key: "irritated", mood: "Angry" },
+  { key: "pissed", mood: "Angry" },
+  { key: "outraged", mood: "Angry" },
+  { key: "hostile", mood: "Angry" },
+  { key: "bitter", mood: "Angry" },
+  { key: "resentful", mood: "Angry" },
+  { key: "vengeful", mood: "Angry" },
+  
+  // Fear spectrum (expanded)
   { key: "scared", mood: "Scared" },
   { key: "afraid", mood: "Scared" },
   { key: "anxious", mood: "Scared" },
   { key: "tense", mood: "Scared" },
+  { key: "nervous", mood: "Scared" },
+  { key: "worried", mood: "Scared" },
+  { key: "terrified", mood: "Scared" },
+  { key: "frightened", mood: "Scared" },
+  { key: "panicked", mood: "Scared" },
+  { key: "uneasy", mood: "Scared" },
+  { key: "apprehensive", mood: "Scared" },
+  { key: "paranoid", mood: "Scared" },
+  
+  // Joy/Excitement spectrum (expanded)
   { key: "excited", mood: "Excited" },
   { key: "thrilled", mood: "Excited" },
   { key: "pumped", mood: "Excited" },
+  { key: "energized", mood: "Excited" },
+  { key: "hyped", mood: "Excited" },
+  { key: "enthusiastic", mood: "Excited" },
+  { key: "exhilarated", mood: "Excited" },
   { key: "happy", mood: "Happy" },
   { key: "joyful", mood: "Happy" },
   { key: "cheerful", mood: "Happy" },
+  { key: "delighted", mood: "Happy" },
+  { key: "elated", mood: "Happy" },
+  { key: "ecstatic", mood: "Happy" },
+  { key: "jubilant", mood: "Happy" },
+  { key: "gleeful", mood: "Happy" },
+  { key: "content", mood: "Happy" },
+  { key: "satisfied", mood: "Happy" },
+  { key: "playful", mood: "Playful" },
+  { key: "silly", mood: "Playful" },
+  { key: "goofy", mood: "Playful" },
+  { key: "mischievous", mood: "Playful" },
+  { key: "whimsical", mood: "Playful" },
+  
+  // Calm spectrum (expanded)
   { key: "relaxed", mood: "Relaxed" },
   { key: "calm", mood: "Relaxed" },
   { key: "chill", mood: "Relaxed" },
+  { key: "peaceful", mood: "Relaxed" },
+  { key: "serene", mood: "Relaxed" },
+  { key: "tranquil", mood: "Relaxed" },
+  { key: "zen", mood: "Relaxed" },
+  { key: "mellow", mood: "Relaxed" },
+  { key: "laid-back", mood: "Relaxed" },
+  { key: "cozy", mood: "Cozy" },
+  { key: "comfortable", mood: "Cozy" },
+  { key: "snug", mood: "Cozy" },
+  { key: "cuddly", mood: "Cozy" },
+  
+  // Nostalgic spectrum
   { key: "nostalgic", mood: "Nostalgic" },
+  { key: "reminiscing", mood: "Nostalgic" },
+  { key: "throwback", mood: "Nostalgic" },
+  { key: "memory", mood: "Nostalgic" },
+  { key: "sentimental", mood: "Nostalgic" },
+  { key: "longing", mood: "Nostalgic" },
+  
+  // Romantic spectrum (expanded)
   { key: "romantic", mood: "Romantic" },
   { key: "in love", mood: "Romantic" },
-  { key: "cozy", mood: "Cozy" },
+  { key: "loving", mood: "Romantic" },
+  { key: "affectionate", mood: "Romantic" },
+  { key: "passionate", mood: "Romantic" },
+  { key: "intimate", mood: "Romantic" },
+  { key: "tender", mood: "Romantic" },
+  { key: "smitten", mood: "Romantic" },
+  { key: "infatuated", mood: "Romantic" },
+  
+  // Other moods (expanded)
   { key: "wholesome", mood: "Wholesome" },
+  { key: "heartwarming", mood: "Wholesome" },
+  { key: "sweet", mood: "Wholesome" },
+  { key: "pure", mood: "Wholesome" },
+  { key: "innocent", mood: "Wholesome" },
   { key: "curious", mood: "Curious" },
+  { key: "wondering", mood: "Curious" },
+  { key: "inquisitive", mood: "Curious" },
+  { key: "intrigued", mood: "Curious" },
   { key: "adventurous", mood: "Adventurous" },
+  { key: "daring", mood: "Adventurous" },
+  { key: "bold", mood: "Adventurous" },
+  { key: "brave", mood: "Adventurous" },
   { key: "mysterious", mood: "Mysterious" },
+  { key: "enigmatic", mood: "Mysterious" },
+  { key: "cryptic", mood: "Mysterious" },
+  { key: "intriguing", mood: "Mysterious" },
   { key: "edgy", mood: "Edgy" },
+  { key: "rebellious", mood: "Edgy" },
+  { key: "defiant", mood: "Edgy" },
+  { key: "provocative", mood: "Edgy" },
+  { key: "bored", mood: "Bored" },
+  { key: "unmotivated", mood: "Bored" },
+  { key: "restless", mood: "Bored" },
+  { key: "listless", mood: "Bored" },
+  { key: "apathetic", mood: "Bored" },
+  { key: "motivated", mood: "Motivated" },
+  { key: "inspired", mood: "Motivated" },
+  { key: "determined", mood: "Motivated" },
+  { key: "ambitious", mood: "Motivated" },
+  { key: "driven", mood: "Motivated" },
+  { key: "focused", mood: "Motivated" },
+  { key: "lonely", mood: "Lonely" },
+  { key: "isolated", mood: "Lonely" },
+  { key: "alone", mood: "Lonely" },
+  { key: "disconnected", mood: "Lonely" },
+  { key: "lonesome", mood: "Lonely" },
+  { key: "hopeful", mood: "Hopeful" },
+  { key: "optimistic", mood: "Hopeful" },
+  { key: "uplifted", mood: "Hopeful" },
+  { key: "encouraged", mood: "Hopeful" },
+  { key: "positive", mood: "Hopeful" },
 ];
 
+// Enhanced mood inference with priority levels
 function inferMoodFromText(text: string): keyof typeof MOOD_BRIDGE | undefined {
   const t = (text || "").toLowerCase();
-  // prefer the first match in order (rough heuristic)
-  for (const { key, mood } of TEXT_TONE_TO_MOOD) {
-    if (t.includes(key)) return mood;
+  
+  // Priority 1: Explicit mood statements (e.g., "I'm feeling...", "I feel...")
+  const explicitPatterns = [
+    /(?:i'?m|im|i am)\s+(?:feeling|in a|so|really|very|super|pretty)\s+(\w+)/i,
+    /(?:i feel|feeling)\s+(?:so|really|very|super|pretty)?\s*(\w+)/i,
+    /(?:my mood is|current mood|mood:|feeling:)\s+(\w+)/i,
+    /(?:i'm|i am)\s+(\w+)\s+(?:right now|today|tonight|this evening)/i,
+  ];
+  
+  for (const pattern of explicitPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const moodWord = match[1].toLowerCase();
+      const found = TEXT_TONE_TO_MOOD.find(({ key }) => key === moodWord || moodWord.includes(key));
+      if (found) return found.mood;
+    }
   }
+  
+  // Priority 2: Direct mood word matches (prefer earlier matches as more specific)
+  for (const { key, mood } of TEXT_TONE_TO_MOOD) {
+    // Use word boundaries for better precision
+    const regex = new RegExp(`\\b${key}\\b`, 'i');
+    if (regex.test(t)) return mood;
+  }
+  
+  // Priority 3: Contextual inference from phrases (expanded)
+  const contextualPatterns: Array<{ pattern: RegExp; mood: keyof typeof MOOD_BRIDGE }> = [
+    // Sadness contexts
+    { pattern: /need\s+(?:a\s+)?good\s+cry|want\s+to\s+cry|make\s+me\s+cry/i, mood: "Sad" },
+    { pattern: /going\s+through\s+(?:a\s+)?breakup|just\s+broke\s+up|relationship\s+ended/i, mood: "Sad" },
+    { pattern: /lost\s+(?:my|someone|a)/i, mood: "Sad" },
+    { pattern: /dealing\s+with\s+grief|mourning|funeral/i, mood: "Sad" },
+    
+    // Happy contexts
+    { pattern: /cheer\s+me\s+up|lift\s+my\s+spirits|brighten\s+my\s+day/i, mood: "Happy" },
+    { pattern: /celebrate|celebrating|celebration|party|good\s+news/i, mood: "Happy" },
+    { pattern: /laugh|funny|humor|comedy|joke/i, mood: "Happy" },
+    
+    // Relaxation contexts
+    { pattern: /wind\s+down|unwind|de-stress|destress|decompress/i, mood: "Relaxed" },
+    { pattern: /after\s+(?:a\s+)?long\s+(?:day|week)|tired|exhausted/i, mood: "Relaxed" },
+    { pattern: /lazy\s+(?:day|evening|afternoon)|rainy\s+day/i, mood: "Cozy" },
+    
+    // Excitement contexts
+    { pattern: /get\s+my\s+blood\s+pumping|adrenaline|action-packed/i, mood: "Excited" },
+    { pattern: /edge\s+of\s+my\s+seat|intense|explosive/i, mood: "Excited" },
+    
+    // Fear contexts
+    { pattern: /spook\s+me|scare\s+me|terrify\s+me|give\s+me\s+chills/i, mood: "Scared" },
+    { pattern: /horror\s+fan|love\s+scary|thriller\s+mood/i, mood: "Scared" },
+    
+    // Romantic contexts
+    { pattern: /date\s+night|anniversary|romantic\s+evening|valentine/i, mood: "Romantic" },
+    { pattern: /love\s+story|romance|couple|relationship\s+movie/i, mood: "Romantic" },
+    
+    // Nostalgic contexts
+    { pattern: /miss\s+the\s+(?:old|good\s+old)\s+days|reminds?\s+me\s+of|brings?\s+back/i, mood: "Nostalgic" },
+    { pattern: /childhood|growing\s+up|when\s+i\s+was\s+(?:young|a\s+kid)/i, mood: "Nostalgic" },
+    { pattern: /classic|vintage|retro|throwback|old\s+school/i, mood: "Nostalgic" },
+    
+    // Curiosity contexts
+    { pattern: /something\s+deep|make\s+me\s+think|thought-provoking/i, mood: "Curious" },
+    { pattern: /learn|educational|documentary|discover/i, mood: "Curious" },
+    { pattern: /mystery|puzzle|detective|whodunit/i, mood: "Mysterious" },
+    
+    // Anger contexts
+    { pattern: /blow\s+off\s+steam|vent|release\s+anger|frustrated/i, mood: "Angry" },
+    { pattern: /revenge|justice|payback|get\s+back\s+at/i, mood: "Angry" },
+    
+    // Boredom contexts
+    { pattern: /nothing\s+to\s+do|kill\s+time|pass\s+the\s+time/i, mood: "Bored" },
+    { pattern: /bored\s+out\s+of\s+my\s+mind|so\s+bored|really\s+bored/i, mood: "Bored" },
+    
+    // Motivation contexts
+    { pattern: /need\s+(?:some\s+)?inspiration|motivate\s+me|pump\s+me\s+up/i, mood: "Motivated" },
+    { pattern: /underdog\s+story|comeback|triumph|overcome/i, mood: "Motivated" },
+    
+    // Loneliness contexts
+    { pattern: /feeling\s+alone|need\s+company|miss\s+people|isolated/i, mood: "Lonely" },
+    { pattern: /connection|companionship|friendship|human\s+contact/i, mood: "Lonely" },
+    
+    // Hope contexts
+    { pattern: /need\s+hope|looking\s+for\s+hope|something\s+uplifting/i, mood: "Hopeful" },
+    { pattern: /new\s+beginning|fresh\s+start|second\s+chance/i, mood: "Hopeful" },
+    
+    // Wholesome contexts
+    { pattern: /wholesome|heartwarming|feel-good|family-friendly/i, mood: "Wholesome" },
+    { pattern: /innocent|pure|sweet|gentle/i, mood: "Wholesome" },
+    
+    // Adventurous contexts
+    { pattern: /adventure|explore|journey|quest|travel/i, mood: "Adventurous" },
+    { pattern: /epic|grand|sweeping|legendary/i, mood: "Adventurous" },
+  ];
+  
+  for (const { pattern, mood } of contextualPatterns) {
+    if (pattern.test(text)) return mood;
+  }
+  
   return undefined;
 }
 
@@ -304,25 +811,29 @@ function inferGenresFromKeywords(keywords: string[] = []): string[] {
 
 export async function parseUserInput(text: string, mood?: string, moodResponse: "match" | "address" = "match") {
   const safeText = (text || "").trim();
-  // include a compact mood->genre hint table to steer the parser without hardcoding outputs
   const compactGuide = JSON.stringify(MOOD_BRIDGE);
+
+  // +++ ENHANCED: infer mood from text if none provided +++
+  const inferredMood = mood ? undefined : inferMoodFromText(safeText);
+  const effectiveMood = mood || inferredMood;
 
   const prompt = `Extract precise, input-anchored movie search parameters from the user input. Respond with JSON only that matches the schema.
 InputText: """${safeText.replace(/"""|```/g, "'")}"""
-Mood: "${mood ?? ""}"
+Mood: "${effectiveMood ?? ""}"
 MoodResponse: "${moodResponse}"
 
 ReferenceMoodGuide: ${compactGuide}
 
 Rules:
-- If Mood is empty, ignore mood alignment unless you can infer a tone from InputText.
-- If MoodResponse is "address" with no Mood, interpret "address" as counterbalancing the emotional tone detectable in InputText (e.g., if text feels sad, suggest uplifting genres); otherwise pick broadly mood-elevating/complementary options.
+- If Mood is provided, use it for genre/keyword alignment.
+- If Mood is empty but InputText contains emotional tone, infer the mood and set inferredMood field.
+- If MoodResponse is "address" with a Mood, counterbalance it; if "address" with no Mood, detect tone and counterbalance.
 - Always prioritize exact words/short phrases from InputText for keywords (1–6 words). Do not invent long keywords.
 - Genres are canonical labels (e.g., "Drama", "Comedy"); keywords capture user anchors.
-- If the InputText is too vague or non-descriptive (short filler words, single-word affirmative replies, or otherwise lacking specific anchors), set "ambiguous": true in the JSON and return minimal/empty arrays for genres/keywords. Do not rely on a fixed built-in list of ambiguous tokens; decide ambiguity based on the informativeness of the input.
+- If the InputText is too vague or non-descriptive (short filler words, single-word affirmative replies, or otherwise lacking specific anchors), set "ambiguous": true in the JSON and return minimal/empty arrays for genres/keywords.
 - Keep output minimal and valid. Arrays small (keywords 1–6, genres 0–4) with minor non-deterministic ordering.
 
-Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse, ambiguous. No other keys.
+Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, era, language, adult, moodResponse, ambiguous, inferredMood. No other keys.
 `;
 
   const schema = {
@@ -344,32 +855,31 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
       adult: { type: "boolean" },
       moodResponse: { type: "string", enum: ["match", "address"] },
       ambiguous: { type: "boolean" },
+      inferredMood: { type: ["string", "null"] },
     },
     additionalProperties: false,
   };
 
   let parsed: any = null;
   try {
-    // Primary attempt: requested schema (strict)
     parsed = await parseContents(prompt, schema);
   } catch (errStrict) {
-    // Fallback: ask the model again without a strict responseSchema and be tolerant in parsing/coercion.
     try {
       parsed = await parseContents(prompt);
     } catch (errLoose) {
-      // If both fail, return a minimal heuristic parse so callers keep working.
       parsed = { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
     }
   }
 
-  // ensure parsed is an object
   parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
 
-  // +++ CHANGE: force the user's requested moodResponse to be respected +++
+  // +++ CRITICAL: always ensure inferredMood is set if we detected one +++
+  if (effectiveMood && !parsed.inferredMood) {
+    parsed.inferredMood = effectiveMood;
+  }
+
   const requestedMoodResponse = moodResponse === "address" ? "address" : "match";
   parsed.moodResponse = requestedMoodResponse;
-
-  // Coerce ambiguous to boolean if present; default false
   parsed.ambiguous = Boolean(parsed.ambiguous === true);
 
   const genresArr = coerceToStringArray(parsed.genres);
@@ -381,18 +891,17 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     singleKeywords = extractKeywordsFromText(safeText, 8);
   }
 
-  // +++ NEW: infer mood from text if user didn't provide one +++
-  const inferredMood = mood ? undefined : inferMoodFromText(safeText);
-  const moodForHints = mood || inferredMood;
-
+  const moodForHints = effectiveMood;
   const keepMood = explicitKeepMood(safeText, mood);
 
-  // If the model marked the input ambiguous, clear keywords/genres to signal caller to ask for clarification
   if (parsed.ambiguous) {
     parsed.keywords = [];
     parsed.genres = [];
-    // still preserve moodResponse and adult flags, but avoid injecting hint tokens
     parsed.moodResponse = requestedMoodResponse;
+    // +++ Still return inferredMood even for ambiguous inputs +++
+    if (effectiveMood) {
+      parsed.inferredMood = effectiveMood;
+    }
     return parsed;
   }
 
@@ -401,7 +910,7 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     const hints = moodKey ? MOOD_KEYWORD_HINTS[moodKey] : null;
 
     if (parsed.moodResponse === "match" && hints?.match?.length) {
-      const need = 2; // at most 2 hint tokens
+      const need = 2;
       const present = new Set(singleKeywords.map((s) => s.toLowerCase()));
       for (const h of hints.match) {
         if (present.has(h)) continue;
@@ -419,13 +928,11 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     }
   }
 
-  // finalize keywords: ensure single words, dedupe, limit, shuffle small chance
   const finalKeywords = Array.from(new Set(singleKeywords.map((k) => (k || "").toLowerCase())))
     .filter(Boolean)
     .slice(0, 8);
   parsed.keywords = maybeShuffleArray(finalKeywords);
 
-  // Ensure genres ALWAYS present as an array (may be empty) — prefer model, then mood hints, then keyword heuristics
   let finalGenres: string[] = [];
   if (Array.isArray(genresArr) && genresArr.length > 0) {
     finalGenres = genresArr.slice(0, 4).map((g) => (g || "").trim()).filter(Boolean);
@@ -437,17 +944,14 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     }
   }
 
-  // If still empty, try simple inference from keywords
   if (finalGenres.length === 0) {
     const inferred = inferGenresFromKeywords(parsed.keywords || []);
     finalGenres = inferred.slice(0, 3);
   }
 
-  // Always dedupe and limit
   parsed.genres = Array.from(new Set(finalGenres)).slice(0, 4);
   parsed.genres = maybeShuffleArray(parsed.genres);
 
-  // Coerce adult to boolean if present (handle "False", "false", "no", 0, "0", etc.)
   if ("adult" in parsed) {
     const v = parsed.adult;
     if (typeof v === "boolean") {
@@ -462,8 +966,6 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     }
   }
 
-  // Safety: if moodResponse === "address" and the model returned genres that are exact synonyms of the Mood label,
-  // prefer to remove direct synonyms so the result better counteracts the mood.
   if (parsed.moodResponse === "address" && Array.isArray(parsed.genres)) {
     const moodLower = (moodForHints || "").toLowerCase();
     parsed.genres = (parsed.genres as string[]).filter((g) => g.toLowerCase() !== moodLower);
