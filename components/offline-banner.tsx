@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Alert } from "@mui/material"
+import { useTheme } from "@/contexts/theme-context"
 
 export default function OfflineBanner() {
   const [offline, setOffline] = useState<boolean>(false)
+  const { theme } = useTheme()
 
   useEffect(() => {
     const update = () => setOffline(typeof navigator !== "undefined" && !navigator.onLine)
