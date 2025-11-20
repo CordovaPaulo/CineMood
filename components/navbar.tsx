@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button, Menu, MenuItem, IconButton, Tooltip } from "@mui/material"
-import { LightMode, DarkMode } from "@mui/icons-material"
+import { LightMode, DarkMode, Menu as MenuIcon } from "@mui/icons-material"
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { easeOut, itemTransition } from "@/lib/motion"
@@ -17,6 +17,7 @@ export function Navbar() {
   const [userName, setUserName] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+  const [mobileAnchor, setMobileAnchor] = useState<null | HTMLElement>(null)
 
   // Fetch session (reads cinemood_auth_token on server)
   useEffect(() => {
@@ -63,12 +64,24 @@ export function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-bold" style={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
+        <Link href="/" className="text-lg sm:text-2xl font-bold" style={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
           CineMood
         </Link>
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          {/* Mobile menu button (visible on small screens only) */}
+          <IconButton
+            className="sm:hidden"
+            onClick={(e) => setMobileAnchor(e.currentTarget)}
+            sx={{ color: theme.primary }}
+            aria-label="Open menu"
+          >
+            <MenuIcon />
+          </IconButton>
+
+          {/* Desktop links (hidden on very small screens) */}
+          <div className="hidden sm:flex items-center gap-2">
           {/* Theme Mode Toggle */}
           <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
             <IconButton
@@ -157,6 +170,8 @@ export function Navbar() {
             </Button>
           </Link>
 
+          </div>
+
           {/* Dynamic Login / Username with reliable animation */}
           <AnimatePresence mode="wait" initial={false}>
             {!ready ? (
@@ -244,6 +259,50 @@ export function Navbar() {
             >
               Logout
             </MenuItem>
+          </Menu>
+
+          {/* Mobile menu (same items as desktop, shown in a Menu) */}
+          <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor)} onClose={() => setMobileAnchor(null)}>
+            <MenuItem
+              onClick={() => {
+                setMobileAnchor(null)
+                toggleMode()
+              }}
+            >
+              {mode === "dark" ? "Light Mode" : "Dark Mode"}
+            </MenuItem>
+            <MenuItem component={Link} href="/home" onClick={() => setMobileAnchor(null)}>
+              Home
+            </MenuItem>
+            <MenuItem component={Link} href="/favorites" onClick={() => setMobileAnchor(null)}>
+              Favorites
+            </MenuItem>
+            <MenuItem component={Link} href="/history" onClick={() => setMobileAnchor(null)}>
+              History
+            </MenuItem>
+            <MenuItem component={Link} href="/about" onClick={() => setMobileAnchor(null)}>
+              About
+            </MenuItem>
+            {ready && userName ? (
+              <MenuItem
+                onClick={async () => {
+                  setMobileAnchor(null)
+                  if (!confirm("Log out of CineMood?")) return
+                  try {
+                    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
+                  } finally {
+                    // ensure UI reflects logout
+                    location.href = "/"
+                  }
+                }}
+              >
+                Logout
+              </MenuItem>
+            ) : (
+              <MenuItem component={Link} href={pathname === "/" ? "/signup" : "/"} onClick={() => setMobileAnchor(null)}>
+                {pathname === "/" ? "Sign Up" : "Login"}
+              </MenuItem>
+            )}
           </Menu>
         </div>
       </div>

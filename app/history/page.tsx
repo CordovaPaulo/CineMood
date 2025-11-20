@@ -198,7 +198,7 @@ export default function HistoryPage() {
             initial="hidden"
             animate="show"
           >
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
               <HistoryIcon sx={{ color: theme.primary, fontSize: 32, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }} />
               <h1 className="text-3xl font-bold" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                 Your Recommendation History
@@ -406,11 +406,11 @@ export default function HistoryPage() {
                                     )
                                   }
  
-                                  return (
+                                    return (
                                     <div
                                       key={movie.id}
-                                      className="w-[233 px] shrink-0"
-                                      style={{ minWidth: 233, maxWidth: 233 }}
+                                      className="w-[160px] sm:w-[200px] md:w-[233px] shrink-0"
+                                      style={{ minWidth: 160, maxWidth: 233 }}
                                     >
                                       <MovieCard
                                         title={movie.title}
