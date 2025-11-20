@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { discoverMovies } from "../../services/tmdb";
 import { rerankMovies } from "../../services/rerank";
-import { parseUserInput } from "@/services/gemini";
+import { parseUserInput, getGenresForMood } from "@/services/gemini";
 import { HttpError } from "@/app/services/http";
 import { verifyToken, decodeToken } from "@/lib/jwt";
 import { cookies } from 'next/headers';
@@ -105,9 +105,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const candidates = await discoverMovies(parsed, { pages: 5 });
+    console.log("[recommendations] parsed:", {
+      genres: parsed.genres,
+      keywords: parsed.keywords,
+      moodResponse: parsed.moodResponse,
+      inferredMood: parsed.inferredMood,
+    });
 
     const effectiveMood = mood || parsed.inferredMood || "";
+
+    // If parser returned no genres but we have an explicit effectiveMood, try forcing
+    // genres derived from the mood to avoid empty discovery queries.
+    if (Array.isArray(parsed.genres) && parsed.genres.length === 0 && effectiveMood) {
+      try {
+        const fallbackGenres = getGenresForMood(effectiveMood, parsed.moodResponse || normalizedMoodResponse);
+        if (fallbackGenres && fallbackGenres.length > 0) {
+          parsed.genres = fallbackGenres;
+          console.log('[recommendations] applied fallback genres from mood:', fallbackGenres);
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    // If keywords are empty, try to populate from mood hints so we can match overviews
+    if (Array.isArray(parsed.keywords) && parsed.keywords.length === 0 && effectiveMood) {
+      try {
+        // import getKeywordsForMood lazily to avoid cycles
+        const { getKeywordsForMood } = await import("@/services/gemini");
+        const fallbackKeywords = getKeywordsForMood(effectiveMood, parsed.moodResponse || normalizedMoodResponse);
+        if (fallbackKeywords && fallbackKeywords.length > 0) {
+          parsed.keywords = fallbackKeywords;
+          console.log('[recommendations] applied fallback keywords from mood:', fallbackKeywords);
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    let candidates = await discoverMovies(parsed, { pages: 5 });
+    console.log("[recommendations] discover returned candidates:", Array.isArray(candidates) ? candidates.length : 0);
+
+    // If discover returned no candidates, try one more time with strong mood->genre enforcement
+    if ((!candidates || candidates.length === 0) && effectiveMood) {
+      const forced = { ...parsed, genres: getGenresForMood(effectiveMood, parsed.moodResponse || normalizedMoodResponse) };
+      console.log('[recommendations] discover returned 0, retrying with forced genres:', forced.genres);
+      candidates = await discoverMovies(forced, { pages: 5 });
+      console.log('[recommendations] retry discover returned candidates:', Array.isArray(candidates) ? candidates.length : 0);
+      if (!candidates || candidates.length === 0) {
+        return NextResponse.json(
+          { message: 'No recommendations available for that mood right now.', code: 'NO_RESULTS', parsed, mood: effectiveMood },
+          { status: 502 }
+        );
+      }
+    }
 
     const ranked = rerankMovies(candidates, {
       userText: text,
@@ -116,6 +167,16 @@ export async function POST(request: NextRequest) {
       moodResponse: parsed.moodResponse || normalizedMoodResponse,
       limit: 20,
     });
+    console.log("[recommendations] reranked results:", Array.isArray(ranked) ? ranked.length : 0);
+
+    // If reranker produced no results, surface a clear error to the client
+    if (!Array.isArray(ranked) || ranked.length === 0) {
+      console.log('[recommendations] no ranked results, returning NO_RESULTS');
+      return NextResponse.json(
+        { message: 'No recommendations available for that mood right now.', code: 'NO_RESULTS', parsed, mood: effectiveMood },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json(
       {

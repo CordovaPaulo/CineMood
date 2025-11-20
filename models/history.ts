@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 interface PromptEntry {
     mood: string;
     movieIds: string[];
+    moodResponse?: string;
     createdAt?: Date;
 }
 
@@ -14,6 +15,7 @@ interface History {
 const promptSchema = new mongoose.Schema<PromptEntry>({
     mood: { type: String, required: true },
     movieIds: { type: [String], default: [] },
+    moodResponse: { type: String, required: false },
     createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 

@@ -86,6 +86,17 @@ const MOOD_BRIDGE: Record<string, { match: string[]; address: string[] }> = {
   },
 };
 
+// Public helper: get canonical genres for a mood and response type
+export function getGenresForMood(mood?: string, response: "match" | "address" = "match") {
+  if (!mood) return [];
+  const key = Object.keys(MOOD_BRIDGE).find((k) => k.toLowerCase() === mood.toLowerCase());
+  if (!key) return [];
+  const pick = MOOD_BRIDGE[key];
+  if (!pick) return [];
+  const arr = response === "address" ? pick.address : pick.match;
+  return Array.isArray(arr) ? arr.slice(0, 4) : [];
+}
+
 // Expanded keyword hints with more nuanced suggestions
 const MOOD_KEYWORD_HINTS: Record<string, { match: string[]; address: string[] }> = {
   Happy: { 
@@ -871,7 +882,14 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     }
   }
 
-  parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
+  // Ensure parsed is an object. If the LLM returned an array (e.g., just a list of genres),
+  // coerce it into the expected object shape so downstream code doesn't treat the array
+  // as the whole parsed payload.
+  if (Array.isArray(parsed)) {
+    parsed = { genres: parsed.slice(0, 4), keywords: [], moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
+  } else {
+    parsed = parsed && typeof parsed === "object" ? parsed : { moodResponse: moodResponse === "address" ? "address" : "match", ambiguous: false };
+  }
 
   // +++ CRITICAL: always ensure inferredMood is set if we detected one +++
   if (effectiveMood && !parsed.inferredMood) {
@@ -937,10 +955,11 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
   if (Array.isArray(genresArr) && genresArr.length > 0) {
     finalGenres = genresArr.slice(0, 4).map((g) => (g || "").trim()).filter(Boolean);
   } else if (moodForHints) {
-    const hint = MOOD_BRIDGE[moodForHints];
-    if (hint) {
-      const pick = parsed.moodResponse === "address" ? hint.address : hint.match;
-      finalGenres = (pick || []).slice(0, 4);
+    // Use case-insensitive helper to fetch genres for the mood (handles lowercase/variants)
+    try {
+      finalGenres = getGenresForMood(moodForHints, parsed.moodResponse || requestedMoodResponse).slice(0, 4);
+    } catch (e) {
+      finalGenres = [];
     }
   }
 
@@ -949,7 +968,7 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     finalGenres = inferred.slice(0, 3);
   }
 
-  parsed.genres = Array.from(new Set(finalGenres)).slice(0, 4);
+  parsed.genres = normalizeGenres(Array.from(new Set(finalGenres)).slice(0, 4));
   parsed.genres = maybeShuffleArray(parsed.genres);
 
   if ("adult" in parsed) {
@@ -1074,4 +1093,56 @@ function extractKeywordsFromText(text: string, limit = 8): string[] {
   }
 
   return Array.from(out).slice(0, limit);
+}
+
+// Normalize genre names to canonical TMDb-like labels
+export function normalizeGenres(genres?: string[]) {
+  if (!Array.isArray(genres)) return [];
+  const CANONICAL: Record<string, string> = {
+    action: "Action",
+    adventure: "Adventure",
+    animation: "Animation",
+    comedy: "Comedy",
+    crime: "Crime",
+    documentary: "Documentary",
+    drama: "Drama",
+    family: "Family",
+    fantasy: "Fantasy",
+    history: "History",
+    horror: "Horror",
+    music: "Music",
+    musical: "Music",
+    mystery: "Mystery",
+    romance: "Romance",
+    "science fiction": "Science Fiction",
+    "science-fiction": "Science Fiction",
+    "sci-fi": "Science Fiction",
+    scifi: "Science Fiction",
+    "tv movie": "TV Movie",
+    "tvmovie": "TV Movie",
+    thriller: "Thriller",
+    war: "War",
+    western: "Western",
+  };
+
+  const out: string[] = [];
+  for (const g of genres) {
+    if (!g) continue;
+    const key = String(g).trim().toLowerCase();
+    const canonical = CANONICAL[key] || CANONICAL[key.replace(/s$/, "")] || (g[0]?.toUpperCase() + g.slice(1));
+    if (canonical && !out.includes(canonical)) out.push(canonical);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+// Public helper: get keyword hints for a mood and response type
+export function getKeywordsForMood(mood?: string, response: "match" | "address" = "match") {
+  if (!mood) return [];
+  const key = Object.keys(MOOD_KEYWORD_HINTS).find((k) => k.toLowerCase() === mood.toLowerCase());
+  if (!key) return [];
+  const pick = MOOD_KEYWORD_HINTS[key];
+  if (!pick) return [];
+  const arr = response === "address" ? pick.address : pick.match;
+  return Array.isArray(arr) ? arr.slice(0, 8) : [];
 }

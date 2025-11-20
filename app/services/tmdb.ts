@@ -47,9 +47,42 @@ const GENRE_NAME_TO_ID: Record<string, number> = {
 
 function genresToIds(genres?: string[]) {
   if (!genres?.length) return null;
-  const ids = genres
-    .map((g) => GENRE_NAME_TO_ID[g] ?? GENRE_NAME_TO_ID[g[0]?.toUpperCase() + g.slice(1)])
-    .filter(Boolean) as number[];
+  // Build a flexible lookup that tolerates case, minor synonyms and common variants
+  const canonicalMap: Record<string, number> = {};
+  for (const k of Object.keys(GENRE_NAME_TO_ID)) {
+    canonicalMap[k.toLowerCase()] = GENRE_NAME_TO_ID[k];
+  }
+  // common synonyms/variants that may appear in parser hints
+  const SYNONYM_MAP: Record<string, string> = {
+    musical: "Music",
+    "music": "Music",
+    "sci-fi": "Science Fiction",
+    scifi: "Science Fiction",
+    "science fiction": "Science Fiction",
+    kids: "Family",
+    cartoon: "Animation",
+    romcom: "Comedy",
+    "tv movie": "TV Movie",
+    "tvmovie": "TV Movie",
+  };
+
+  const ids: number[] = [];
+  for (const raw of genres) {
+    if (!raw) continue;
+    const g = String(raw).trim();
+    const lower = g.toLowerCase();
+    let id = canonicalMap[lower];
+    if (!id) {
+      // try capitalized form (first-letter upper)
+      const cap = g[0]?.toUpperCase() + g.slice(1);
+      id = GENRE_NAME_TO_ID[cap as keyof typeof GENRE_NAME_TO_ID];
+    }
+    if (!id && SYNONYM_MAP[lower]) {
+      const mapped = SYNONYM_MAP[lower];
+      id = GENRE_NAME_TO_ID[mapped as keyof typeof GENRE_NAME_TO_ID];
+    }
+    if (id && !ids.includes(id)) ids.push(id);
+  }
   return ids.length ? ids.join(",") : null;
 }
 
@@ -139,7 +172,10 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
   // Increase pages fetched to get more diverse results
   const requestedPages = Math.max(1, Math.min(10, opts.pages ?? 10)); // increased from 4 to 6
   const sorts = ["popularity.desc", "primary_release_date.desc", "release_date.desc", "vote_average.desc", "revenue.desc"];
-  const sort_by = sorts[Math.floor(Math.random() * sorts.length)];
+  // If the parser provided explicit genres, prefer deterministic popularity sort
+  // to keep genre-aligned results consistent (applies to both 'match' and 'address').
+  const prefersDeterministic = Array.isArray((parsed as any)?.genres) && (parsed as any).genres.length > 0;
+  const sort_by = prefersDeterministic ? "popularity.desc" : sorts[Math.floor(Math.random() * sorts.length)];
 
   try {
     const paramsPage1 = buildDiscoverParams(parsed, { page: 1, sort_by });
@@ -163,6 +199,27 @@ export async function discoverMovies(parsed: DiscoverParams, opts: { pages?: num
 
     for (const oj of otherJsons) {
       if (oj && Array.isArray(oj.results)) resultsAcc.push(...oj.results);
+    }
+
+    // If multiple genres were provided, the single discover call may behave like an AND filter
+    // which yields few or no results. To implement OR semantics we fetch one page per genre
+    // (limited to avoid too many calls) and merge the results into the accumulator.
+    try {
+      const genresList = Array.isArray(parsed?.genres) ? (parsed.genres as string[]) : [];
+      if (genresList.length > 1) {
+        const perGenreLimit = Math.min(3, genresList.length); // cap extra genre fetches
+        for (let i = 0; i < perGenreLimit; i++) {
+          const singleGenre = genresList[i];
+          const singleParam = { ...parsed, genres: [singleGenre] } as DiscoverParams;
+          const qg = buildDiscoverParams(singleParam, { page: 1, sort_by });
+          try {
+            const jg = await tmdbGet<any>("discover/movie", qg).catch(() => null);
+            if (jg && Array.isArray(jg.results)) resultsAcc.push(...jg.results);
+          } catch {}
+        }
+      }
+    } catch (e) {
+      // ignore extra fetch failures; we already have resultsAcc
     }
 
     // NOTE: removed title-based keyword search:

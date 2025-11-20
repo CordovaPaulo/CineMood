@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useFavoritesHistory } from "../providers/FavoritesHistoryProvider"
 import { useRouter } from "next/navigation"
 import { Navbar } from "../../components/navbar"
 import OfflineBanner from "../../components/offline-banner"
@@ -42,6 +43,7 @@ export default function ResultsPage() {
   const [allResults, setAllResults] = useState<Movie[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [parsedData, setParsedData] = useState<ParsedData | null>(null)
+  const { refreshFavorites } = useFavoritesHistory()
 
   // helper to pick a random sample of up to 5 from a list and persist the shown list
   function pickRandomFive(src?: Movie[]) {
@@ -270,10 +272,20 @@ export default function ResultsPage() {
       })
       const data = await res.json()
 
+      if(res.status === 409){
+        toast.info("These picks are already in your favorites.")
+        return
+      }
+
       if (!res.ok) {
         toast.error(data?.error || "Failed to save favorites")
       } else {
         toast.success("Saved current picks to favorites")
+        try {
+          refreshFavorites && refreshFavorites()
+        } catch (e) {
+          // provider also listens to history events if refresh fails
+        }
       }
     } catch (e) {
       console.error("Save favorites error:", e)
