@@ -1,7 +1,8 @@
 "use client"
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
-type Prompt = { mood: string; movieIds: string[]; createdAt: string; _id?: string };
+type Prompt = { mood: string; movieIds: string[]; createdAt: string; moodResponse?: string; _id?: string };
 
 type ContextValue = {
   favorites: Prompt[];
@@ -24,11 +25,20 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
     setLoadingFavorites(true);
     try {
       const res = await fetch("/api/recommendations/favorite");
-      if (!res.ok) throw new Error("Failed to fetch favorites");
+      if (!res.ok) {
+        const body = await res.text().catch(() => null);
+        if (res.status === 401) {
+          toast.info("Please log in to view your favorites.");
+        } else {
+          toast.error(body || "Failed to fetch favorites.");
+        }
+        throw new Error("Failed to fetch favorites");
+      }
       const data = await res.json();
       setFavorites((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchFavorites error", e);
+      toast.error("Unable to load favorites right now.");
     } finally {
       setLoadingFavorites(false);
     }
@@ -38,11 +48,20 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
     setLoadingHistory(true);
     try {
       const res = await fetch("/api/history");
-      if (!res.ok) throw new Error("Failed to fetch history");
+      if (!res.ok) {
+        const body = await res.text().catch(() => null);
+        if (res.status === 401) {
+          toast.info("Please log in to view your history.");
+        } else {
+          toast.error(body || "Failed to fetch history.");
+        }
+        throw new Error("Failed to fetch history");
+      }
       const data = await res.json();
       setHistory((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchHistory error", e);
+      toast.error("Unable to load history right now.");
     } finally {
       setLoadingHistory(false);
     }
@@ -52,6 +71,20 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
     // fetch both in parallel on mount
     fetchFavorites();
     fetchHistory();
+
+    // listen for outside signals that history changed (e.g., saveToHistory)
+    const onHistoryUpdated = () => {
+      fetchHistory();
+    };
+    try {
+      window.addEventListener("cinemood:history-updated", onHistoryUpdated as EventListener);
+    } catch {}
+
+    return () => {
+      try {
+        window.removeEventListener("cinemood:history-updated", onHistoryUpdated as EventListener);
+      } catch {}
+    };
   }, []);
 
   return (

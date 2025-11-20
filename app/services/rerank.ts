@@ -166,13 +166,18 @@ export function rerankMovies(
   scored.sort((a, b) => b.score - a.score);
 
   // additionally rotate the results by a small random offset to diversify top-k across calls
+  // Only allow rotation when we don't have explicit genres; when genres exist we want
+  // to preserve the top-ranked, genre-aligned results (applies for both 'match' and 'address').
   const arr = scored.slice(); // copy
-  if (arr.length > 1) {
-    const maxRotate = Math.min(arr.length, 7);
-    const rotateBy = Math.floor(Math.random() * maxRotate);
-    if (rotateBy > 0) {
-      const head = arr.splice(0, rotateBy);
-      arr.push(...head);
+  const hasGenres = Array.isArray(parsed?.genres) && parsed.genres.length > 0;
+  if (!hasGenres) {
+    if (arr.length > 1) {
+      const maxRotate = Math.min(arr.length, 7);
+      const rotateBy = Math.floor(Math.random() * maxRotate);
+      if (rotateBy > 0) {
+        const head = arr.splice(0, rotateBy);
+        arr.push(...head);
+      }
     }
   }
 
@@ -190,6 +195,7 @@ export function rerankMovies(
       vote_average: m.vote_average,
       original_language: m.original_language,
       runtime: (m as any).runtime ?? null,
+      genre_ids: m.genre_ids ?? null,
       trailer_youtube_id: (m as any).trailer_youtube_id ?? null, // pass through
     };
   });

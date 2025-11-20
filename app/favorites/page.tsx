@@ -15,8 +15,10 @@ import {
   Alert,
   Typography,
   Button,
+  IconButton,
 } from "@mui/material"
 import { ExpandMore, Favorite as FavoriteIcon, CalendarToday, Refresh } from "@mui/icons-material"
+import { Delete as DeleteIcon } from "@mui/icons-material"
 import { motion, AnimatePresence } from "framer-motion"
 import { fadeInUp, itemTransition } from "@/lib/motion"
 import { toast } from "react-toastify"
@@ -241,50 +243,68 @@ export default function FavoritesPage() {
                           expandIcon={
                             <ExpandMore sx={{ color: theme.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }} />
                           }
+                          aria-controls={`panel-${index}-content`}
+                          id={`panel-${index}-header`}
                           sx={{
                             "& .MuiAccordionSummary-content": {
                               margin: "16px 0",
                             },
                           }}
                         >
-                          <div className="flex items-center justify-between w-full pr-4">
-                            <div className="flex items-center gap-4">
-                              <Chip
-                                label={prompt.mood}
-                                size="medium"
-                                sx={{
-                                  backgroundColor: getMoodColor(prompt.mood),
-                                  color: "white",
-                                  fontWeight: 600,
-                                  fontSize: "0.9rem",
-                                }}
-                              />
-                              <div>
-                                <Typography
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Chip
+                                  label={prompt.mood}
+                                  size="medium"
                                   sx={{
-                                    color: theme.text.primary,
-                                    fontWeight: 500,
-                                    fontSize: "1rem",
+                                    backgroundColor: getMoodColor(prompt.mood),
+                                    color: "white",
+                                    fontWeight: 600,
+                                    fontSize: "0.9rem",
+                                  }}
+                                />
+                                <div className="text-sm" style={{ color: theme.text.secondary }}>
+                                  Saved · {formatDate(prompt.createdAt)}
+                                </div>
+                              </div>
+                              <div>
+                                <IconButton
+                                  component="span"
+                                  aria-label="Delete favorite"
+                                  size="small"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!confirm("Delete this favorites entry?")) return;
+                                    try {
+                                      const res = await fetch("/api/recommendations/favorite", {
+                                        method: "DELETE",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ mood: prompt.mood, movieIds: prompt.movieIds }),
+                                      });
+                                      const payload = await res.json().catch(() => ({}));
+                                      if (!res.ok) {
+                                        toast.error(payload?.error || "Failed to delete favorite");
+                                      } else {
+                                        toast.success("Favorite deleted");
+                                        refreshFavorites();
+                                      }
+                                    } catch (err) {
+                                      console.error("Delete favorite error:", err);
+                                      toast.error("Failed to delete favorite");
+                                    }
+                                  }}
+                                  sx={{
+                                    color: theme.primary,
+                                    p: 0,
+                                    background: 'transparent',
+                                    border: 'none',
+                                    boxShadow: 'none',
+                                    '&:hover': { backgroundColor: 'transparent' },
                                   }}
                                 >
-                                  {prompt.movieIds.length} movies saved
-                                </Typography>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <CalendarToday
-                                    sx={{
-                                      fontSize: 14,
-                                      color: theme.text.secondary,
-                                    }}
-                                  />
-                                  <Typography
-                                    sx={{
-                                      color: theme.text.secondary,
-                                      fontSize: "0.85rem",
-                                    }}
-                                  >
-                                    {formatDate(prompt.createdAt)}
-                                  </Typography>
-                                </div>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
                               </div>
                             </div>
                           </div>

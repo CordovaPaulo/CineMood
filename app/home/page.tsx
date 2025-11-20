@@ -152,7 +152,10 @@ export default function Home() {
       }
 
       if (!res.ok) {
-        if (res.status === 503) {
+        // Prefer specific NO_RESULTS handling so the UI doesn't reuse stale recommendations
+        if (payload?.code === "NO_RESULTS") {
+          toast.error("Failed to fetch films for that mood. Try a different mood or description.")
+        } else if (res.status === 503) {
           toast.error("Recommendations service is temporarily unavailable. Please try again later.")
         } else if (res.status === 502) {
           toast.error("Upstream provider error. Please retry in a moment.")
@@ -166,6 +169,12 @@ export default function Home() {
       }
 
       const fullResults = payload.results || []
+      // If the server responded OK but the results array is empty, treat as a no-results error
+      if (!Array.isArray(fullResults) || fullResults.length === 0) {
+        toast.error("Failed to fetch films. No recommendations were returned.")
+        setLoading(false)
+        return
+      }
       try {
         sessionStorage.setItem("recommendations_all", JSON.stringify(fullResults))
       } catch {}
@@ -176,7 +185,7 @@ export default function Home() {
       
       // Save to history immediately after getting recommendations
       if (effectiveMood && fullResults.length > 0) {
-        saveToHistory(effectiveMood, fullResults.map((m: any) => m.id)).catch((err) => {
+        saveToHistory(effectiveMood, fullResults.map((m: any) => m.id), moodResponse || "").catch((err) => {
           console.error("Failed to save to history:", err)
         })
       }

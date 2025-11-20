@@ -17,6 +17,7 @@ import {
   Button,
 } from "@mui/material"
 import { ExpandMore, History as HistoryIcon, CalendarToday, Refresh } from "@mui/icons-material"
+import { Delete as DeleteIcon } from "@mui/icons-material"
 import { motion, AnimatePresence } from "framer-motion"
 import { fadeInUp, itemTransition } from "@/lib/motion"
 import { toast } from "react-toastify"
@@ -38,6 +39,7 @@ type HistoryPrompt = {
   mood: string
   movieIds: string[]
   createdAt: string
+  moodResponse?: string
   _id?: string
 }
 
@@ -205,6 +207,40 @@ export default function HistoryPage() {
             <p className="text-sm" style={{ color: theme.text.secondary }}>
               Review your past mood-based movie recommendations
             </p>
+            <div className="mt-4">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DeleteIcon />}
+                onClick={async () => {
+                  if (!confirm("Clear your entire history? This cannot be undone.")) return;
+                  try {
+                    const res = await fetch("/api/history", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "clear" }),
+                    });
+                    const payload = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      toast.error(payload?.error || "Failed to clear history");
+                    } else {
+                      toast.success("History cleared");
+                      refreshHistory();
+                    }
+                  } catch (err) {
+                    console.error("Clear history error:", err);
+                    toast.error("Failed to clear history");
+                  }
+                }}
+                sx={{
+                  color: theme.primary,
+                  borderColor: theme.card.border,
+                  '&:hover': { backgroundColor: theme.card.bg },
+                }}
+              >
+                Clear History
+              </Button>
+            </div>
           </motion.div>
 
           {/* History List */}
@@ -280,6 +316,19 @@ export default function HistoryPage() {
                                   fontSize: "0.9rem",
                                 }}
                               />
+                              {prompt.moodResponse ? (
+                                <Chip
+                                  label={prompt.moodResponse === "address" ? "Address" : "Match"}
+                                  size="small"
+                                  sx={{
+                                    marginLeft: 8,
+                                    backgroundColor: "transparent",
+                                    color: theme.text.secondary,
+                                    border: `1px solid ${theme.card.border}`,
+                                    textTransform: "none",
+                                  }}
+                                />
+                              ) : null}
                               <div>
                                 <Typography
                                   sx={{
