@@ -84,11 +84,34 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         },
       }}
     >
-      <CardMedia component="img" height="300" image={imageSrc} alt={title} sx={{ objectFit: "cover" }} />
+      <CardMedia
+        component="img"
+        image={imageSrc}
+        alt={title}
+        sx={{
+          objectFit: "cover",
+          height: { xs: 220, sm: 260, md: 300 },
+        }}
+      />
 
       {/* Rating Badge */}
-      <div className="absolute top-3 right-3 bg-[#A855F7] text-white px-3 py-1 rounded-full flex items-center gap-1 text-sm font-semibold">
-        <Star sx={{ fontSize: "1rem" }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          backgroundColor: theme.primary,
+          color: "#fff",
+          padding: "6px 10px",
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 12,
+          fontWeight: 600,
+        }}
+      >
+        <Star sx={{ fontSize: { xs: 14, md: 16 } }} />
         {ratingText}
       </div>
 
@@ -115,7 +138,16 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
       )}
 
       <CardContent className="py-3">
-        <h3 className="font-semibold text-sm line-clamp-2 mb-2" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>{title}</h3>
+        <h3
+          className="font-semibold line-clamp-2 mb-2"
+          style={{
+            color: theme.text.primary,
+            transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+            fontSize: "0.95rem",
+          }}
+        >
+          {title}
+        </h3>
         {/* Secondary button when not hovered (mobile/keyboard users)
         <Button
           size="small"

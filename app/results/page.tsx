@@ -387,7 +387,7 @@ export default function ResultsPage() {
                   {subtitle}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <Button
                   onClick={handleRefresh}
                   variant="outlined"
@@ -488,7 +488,7 @@ export default function ResultsPage() {
           </motion.div>
 
           {/* Movie Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
              {!isLoading && movies && movies.length > 0 ? (
                movies.map((movie, idx) => (
                 <motion.div

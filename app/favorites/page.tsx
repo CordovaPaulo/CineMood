@@ -177,7 +177,7 @@ export default function FavoritesPage() {
             initial="hidden"
             animate="show"
           >
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
               <FavoriteIcon sx={{ color: theme.primary, fontSize: 32, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }} />
               <h1 className="text-3xl font-bold" style={{ color: theme.text.primary, transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)" }}>
                 Your Favorites
@@ -339,11 +339,11 @@ export default function FavoritesPage() {
                                   }
 
                                   return (
-                                    <div
-                                      key={movie.id}
-                                      className="w-[233 px] shrink-0"
-                                      style={{ minWidth: 233, maxWidth: 233 }}
-                                    >
+                                      <div
+                                        key={movie.id}
+                                        className="w-[160px] sm:w-[200px] md:w-[233px] shrink-0"
+                                        style={{ minWidth: 160, maxWidth: 233 }}
+                                      >
                                       <MovieCard
                                         title={movie.title}
                                         posterPath={movie.poster_path}
