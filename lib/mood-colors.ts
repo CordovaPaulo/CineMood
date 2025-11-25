@@ -278,13 +278,23 @@ export function adaptPaletteForMode(palette: MoodColorPalette, mode: ThemeMode):
         return `rgba(${r}, ${g}, ${b}, 0.06)`
       }),
     },
+    // Improve contrast for light mode: darker primary text and clearer secondary text
     text: {
-      primary: "#1A1A1A", // Dark text for readability on light background
-      secondary: "#666666", // Medium gray for secondary text
+      primary: "#0B1220", // darker, near-black for high contrast on light backgrounds
+      secondary: "#4B5563", // neutral dark gray for secondary text
     },
     card: {
       bg: "#FFFFFF", // White cards on light background
-      border: palette.border, // Keep mood-colored borders
+      // Use a subtle neutral border for cards to improve readability across moods
+      border: hexToRgba("#091226", 0.06),
+    },
+    // Slightly desaturate primary/gradient on light mode so they remain readable
+    primary: palette.primary,
+    primaryDark: palette.primaryDark,
+    gradient: {
+      from: palette.gradient.from,
+      via: palette.gradient.via || palette.gradient.from,
+      to: palette.gradient.to,
     },
   }
 }

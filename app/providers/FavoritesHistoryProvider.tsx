@@ -1,5 +1,6 @@
 "use client"
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "react-toastify";
 
 type Prompt = { mood: string; movieIds: string[]; createdAt: string; moodResponse?: string; _id?: string };
@@ -20,6 +21,8 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
   const [history, setHistory] = useState<Prompt[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const pathname = usePathname()
+  const suppressToasts = pathname === "/" || pathname === "/signup" || (typeof pathname === "string" && pathname.startsWith("/signup"))
 
   const fetchFavorites = async () => {
     setLoadingFavorites(true);
@@ -27,10 +30,12 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
       const res = await fetch("/api/recommendations/favorite");
       if (!res.ok) {
         const body = await res.text().catch(() => null);
-        if (res.status === 401) {
-          toast.info("Please log in to view your favorites.");
-        } else {
-          toast.error(body || "Failed to fetch favorites.");
+        if (!suppressToasts) {
+          if (res.status === 401) {
+            toast.info("Please log in to view your favorites.");
+          } else {
+            toast.error(body || "Failed to fetch favorites.");
+          }
         }
         throw new Error("Failed to fetch favorites");
       }
@@ -38,7 +43,7 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
       setFavorites((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchFavorites error", e);
-      toast.error("Unable to load favorites right now.");
+      if (!suppressToasts) toast.error("Unable to load favorites right now.");
     } finally {
       setLoadingFavorites(false);
     }
@@ -50,10 +55,12 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
       const res = await fetch("/api/history");
       if (!res.ok) {
         const body = await res.text().catch(() => null);
-        if (res.status === 401) {
-          toast.info("Please log in to view your history.");
-        } else {
-          toast.error(body || "Failed to fetch history.");
+        if (!suppressToasts) {
+          if (res.status === 401) {
+            toast.info("Please log in to view your history.");
+          } else {
+            toast.error(body || "Failed to fetch history.");
+          }
         }
         throw new Error("Failed to fetch history");
       }
@@ -61,7 +68,7 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
       setHistory((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchHistory error", e);
-      toast.error("Unable to load history right now.");
+      if (!suppressToasts) toast.error("Unable to load history right now.");
     } finally {
       setLoadingHistory(false);
     }
@@ -86,6 +93,18 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
       } catch {}
     };
   }, []);
+
+  // When navigating to non-auth pages (e.g. after login), refetch so the
+  // favorites/history reflect the newly-authenticated user without a reload.
+  useEffect(() => {
+    if (!pathname) return
+    // If we're not on auth pages, refresh data. This covers the common
+    // login flow where the app navigates away after setting the auth cookie.
+    if (!suppressToasts) {
+      fetchFavorites();
+      fetchHistory();
+    }
+  }, [pathname]);
 
   return (
     <FavoritesHistoryContext.Provider
