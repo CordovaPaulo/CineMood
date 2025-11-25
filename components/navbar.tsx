@@ -72,9 +72,8 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {/* Mobile menu button (visible on small screens only) */}
           <IconButton
-            className="sm:hidden"
             onClick={(e) => setMobileAnchor(e.currentTarget)}
-            sx={{ color: theme.primary }}
+            sx={{ color: theme.primary, display: { xs: "flex", sm: "none" } }}
             aria-label="Open menu"
           >
             <MenuIcon />

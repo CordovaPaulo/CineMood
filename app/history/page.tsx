@@ -304,8 +304,8 @@ export default function HistoryPage() {
                             },
                           }}
                         >
-                          <div className="flex items-center justify-between w-full pr-4">
-                            <div className="flex items-center gap-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full pr-4 gap-3">
+                            <div className="flex items-start sm:items-center gap-4 flex-wrap min-w-0">
                               <Chip
                                 label={prompt.mood}
                                 size="medium"
@@ -321,7 +321,7 @@ export default function HistoryPage() {
                                   label={prompt.moodResponse === "address" ? "Address" : "Match"}
                                   size="small"
                                   sx={{
-                                    marginLeft: 8,
+                                    marginLeft: 0,
                                     backgroundColor: "transparent",
                                     color: theme.text.secondary,
                                     border: `1px solid ${theme.card.border}`,
@@ -329,7 +329,10 @@ export default function HistoryPage() {
                                   }}
                                 />
                               ) : null}
-                              <div>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-0 sm:ml-4">
+                              <div className="min-w-0">
                                 <Typography
                                   sx={{
                                     color: theme.text.primary,
