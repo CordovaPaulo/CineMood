@@ -19,6 +19,7 @@ import { MoodCard } from "../../components/mood-card"
 import MoodResponse from "@/components/mood-response"
 import OfflineBanner from "../../components/offline-banner"
 import { toast } from "react-toastify"
+import VoiceInput from "@/components/voice-input"
 import { motion } from "framer-motion"
 import { fadeInUp, staggerContainer, fadeIn, itemTransition } from "@/lib/motion"
 import { verifyClientConnectivity, isNavigatorOnline } from "@/lib/network"
@@ -298,7 +299,21 @@ export default function Home() {
                   },
                 }}
               />
-              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <VoiceInput
+                    onTranscript={(text, interim) => {
+                      // When interim, update the input visually; when final, commit the value
+                      if (interim) setTextInput((prev) => {
+                        // show interim but do not exceed max length
+                        const candidate = (text || "").slice(0, MAX_PROMPT_LENGTH)
+                        return candidate
+                      })
+                      else setTextInput((text || "").slice(0, MAX_PROMPT_LENGTH))
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <span
                   style={{
                     color: textInput.length > MAX_PROMPT_LENGTH ? "#F87171" : "#9CA3AF",
@@ -308,6 +323,7 @@ export default function Home() {
                 >
                   {textInput.length}/{MAX_PROMPT_LENGTH} characters
                 </span>
+                </div>
               </div>
               <div style={{ marginTop: 8 }}>
                 <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
