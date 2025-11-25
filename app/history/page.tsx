@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { fadeInUp, itemTransition } from "@/lib/motion"
 import { toast } from "react-toastify"
 import { useFavoritesHistory } from "../providers/FavoritesHistoryProvider"
+import ConfirmDialog from "@/components/confirm-dialog"
 import { useTheme } from "@/contexts/theme-context"
 import { MOOD_COLORS } from "@/lib/mood-colors"
 
@@ -49,6 +50,7 @@ export default function HistoryPage() {
   const { history, loadingHistory, refreshHistory } = useFavoritesHistory()
   const [moviesData, setMoviesData] = useState<Record<string, Movie>>({})
   const [isLoading, setIsLoading] = useState(true)
+    const [confirmState, setConfirmState] = useState({ open: false, title: "", description: "", action: () => {} })
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [loadingMovies, setLoadingMovies] = useState<Set<number>>(new Set())
   // new: store which movie ids are displayed per prompt index (max 5 random)
@@ -212,8 +214,7 @@ export default function HistoryPage() {
                 variant="outlined"
                 size="small"
                 startIcon={<DeleteIcon />}
-                onClick={async () => {
-                  if (!confirm("Clear your entire history? This cannot be undone.")) return;
+                onClick={() => setConfirmState({ open: true, title: "Clear your entire history?", description: "This will permanently remove all saved history and cannot be undone.", action: async () => {
                   try {
                     const res = await fetch("/api/history", {
                       method: "DELETE",
@@ -231,7 +232,7 @@ export default function HistoryPage() {
                     console.error("Clear history error:", err);
                     toast.error("Failed to clear history");
                   }
-                }}
+                } })}
                 sx={{
                   color: theme.primary,
                   borderColor: theme.card.border,
@@ -242,6 +243,16 @@ export default function HistoryPage() {
               </Button>
             </div>
           </motion.div>
+
+          <ConfirmDialog
+            open={confirmState.open}
+            title={confirmState.title}
+            description={confirmState.description}
+            confirmLabel="Clear History"
+            cancelLabel="Cancel"
+            onConfirm={confirmState.action}
+            onClose={() => setConfirmState((s) => ({ ...s, open: false }))}
+          />
 
           {/* History List */}
           {!isLoading && history.length === 0 ? (

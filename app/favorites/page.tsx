@@ -25,6 +25,7 @@ import { toast } from "react-toastify"
 import { useFavoritesHistory } from "../providers/FavoritesHistoryProvider"
 import { useTheme } from "@/contexts/theme-context"
 import { MOOD_COLORS } from "@/lib/mood-colors"
+import ConfirmDialog from "@/components/confirm-dialog"
 
 type Movie = {
   id: number
@@ -53,6 +54,7 @@ export default function FavoritesPage() {
   const [loadingMovies, setLoadingMovies] = useState<Set<number>>(new Set())
   // store which movie ids are displayed per prompt index (max 5 random)
   const [displayedIds, setDisplayedIds] = useState<Record<number, string[]>>({})
+  const [confirmState, setConfirmState] = useState({ open: false, title: "", description: "", action: () => {} })
 
   useEffect(() => {
     // map provider loading -> local loading flag
@@ -273,26 +275,32 @@ export default function FavoritesPage() {
                                   component="span"
                                   aria-label="Delete favorite"
                                   size="small"
-                                  onClick={async (e) => {
+                                  onClick={(e) => {
                                     e.stopPropagation();
-                                    if (!confirm("Delete this favorites entry?")) return;
-                                    try {
-                                      const res = await fetch("/api/recommendations/favorite", {
-                                        method: "DELETE",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ mood: prompt.mood, movieIds: prompt.movieIds }),
-                                      });
-                                      const payload = await res.json().catch(() => ({}));
-                                      if (!res.ok) {
-                                        toast.error(payload?.error || "Failed to delete favorite");
-                                      } else {
-                                        toast.success("Favorite deleted");
-                                        refreshFavorites();
-                                      }
-                                    } catch (err) {
-                                      console.error("Delete favorite error:", err);
-                                      toast.error("Failed to delete favorite");
-                                    }
+                                    setConfirmState({
+                                      open: true,
+                                      title: "Delete this favorite?",
+                                      description: "This will remove this saved favorite prompt.",
+                                      action: async () => {
+                                        try {
+                                          const res = await fetch("/api/recommendations/favorite", {
+                                            method: "DELETE",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ mood: prompt.mood, movieIds: prompt.movieIds }),
+                                          });
+                                          const payload = await res.json().catch(() => ({}));
+                                          if (!res.ok) {
+                                            toast.error(payload?.error || "Failed to delete favorite");
+                                          } else {
+                                            toast.success("Favorite deleted");
+                                            refreshFavorites();
+                                          }
+                                        } catch (err) {
+                                          console.error("Delete favorite error:", err);
+                                          toast.error("Failed to delete favorite");
+                                        }
+                                      },
+                                    })
                                   }}
                                   sx={{
                                     color: theme.primary,
@@ -365,6 +373,15 @@ export default function FavoritesPage() {
               </AnimatePresence>
             </div>
           )}
+          <ConfirmDialog
+            open={confirmState.open}
+            title={confirmState.title}
+            description={confirmState.description}
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            onConfirm={confirmState.action}
+            onClose={() => setConfirmState((s) => ({ ...s, open: false }))}
+          />
         </div>
       </div>
     </main>
