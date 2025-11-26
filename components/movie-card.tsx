@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardMedia, Button, Dialog, DialogContent, IconButton } from "@mui/material"
+import { Card, CardContent, CardMedia, Button, Dialog, DialogContent, IconButton, Typography } from "@mui/material"
 import { Star, Close } from "@mui/icons-material"
 import { useState, useMemo } from "react"
 import { useTheme } from "@/contexts/theme-context"
@@ -17,6 +17,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
   const { theme } = useTheme()
   const [isHovered, setIsHovered] = useState(false)
   const [openTrailer, setOpenTrailer] = useState(false)
+  const [openOverview, setOpenOverview] = useState(false)
 
   // memoized placeholder SVG with title text (used when posterPath is missing)
   const placeholderSrc = useMemo(() => {
@@ -78,6 +79,9 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         cursor: "pointer",
         transition: "all 0.3s ease",
         position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        height: 480,
         "&:hover": {
           borderColor: "#A855F7",
           boxShadow: "0 0 15px rgba(168, 85, 247, 0.3)",
@@ -90,7 +94,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         alt={title}
         sx={{
           objectFit: "cover",
-          height: { xs: 220, sm: 260, md: 300 },
+          height: 300,
         }}
       />
 
@@ -115,24 +119,40 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         {ratingText}
       </div>
 
-      {/* Hover Overlay */}
+      {/* Hover Overlay - actions only visible on hover */}
       {isHovered && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="text-center">
-            <h3 className="font-semibold mb-3" style={{ color: "#FFFFFF" }}>{title}</h3>
+          <div className="text-center" style={{ maxWidth: 420 }}>
+            <h3 className="font-semibold mb-2" style={{ color: "#FFFFFF" }}>{title}</h3>
             <p className="text-sm line-clamp-4 mb-4" style={{ color: "#A0A0A0" }}>{overview}</p>
-            <Button
-              variant="contained"
-              onClick={() => setOpenTrailer(true)}
-              disabled={!embedUrl}
-              sx={{
-                backgroundColor: "#A855F7",
-                textTransform: "none",
-                "&:hover": { backgroundColor: "#8B46CF" },
-              }}
-            >
-              Watch Trailer
-            </Button>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <Button
+                variant="contained"
+                onClick={() => setOpenOverview(true)}
+                sx={{
+                  backgroundColor: theme.primary,
+                  color: "#fff",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  "&:hover": { backgroundColor: theme.primaryDark },
+                }}
+              >
+                Read more
+              </Button>
+
+              <Button
+                variant="outlined"
+                onClick={() => setOpenTrailer(true)}
+                disabled={!embedUrl}
+                sx={{
+                  borderColor: theme.primary,
+                  color: theme.primary,
+                  textTransform: "none",
+                }}
+              >
+                Watch Trailer
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -148,24 +168,14 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         >
           {title}
         </h3>
-        {/* Secondary button when not hovered (mobile/keyboard users)
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => setOpenTrailer(true)}
-          disabled={!embedUrl}
-          sx={{
-            borderColor: "#A855F7",
-            color: "#A855F7",
-            textTransform: "none",
-            "&:hover": {
-              borderColor: "#8B46CF",
-              color: "#8B46CF",
-            },
-          }}
+        {/* Keep a short excerpt visible, actions are only on hover in the overlay above */}
+        <Typography
+          variant="body2"
+          className="text-sm line-clamp-3 mb-0"
+          sx={{ color: theme.text.secondary }}
         >
-          Watch Trailer
-        </Button> */}
+          {overview || "No description available."}
+        </Typography>
       </CardContent>
 
       {/* Trailer Dialog */}
@@ -194,6 +204,46 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Overview Dialog (Read more) */}
+      <Dialog
+        open={openOverview}
+        onClose={() => setOpenOverview(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { backgroundColor: theme.card.bg, borderRadius: "12px", overflow: "hidden" } }}
+      >
+        {/* Poster banner */}
+        <DialogContent sx={{ p: 0 }}>
+          {/* Full-width banner with bottom gradient to blend into dialog */}
+          {imageSrc && (
+            <div style={{ position: "relative", width: "100%", height: 220, overflow: "hidden" }}>
+              <img src={imageSrc} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 120,
+                  pointerEvents: "none",
+                  background: `linear-gradient(180deg, rgba(0,0,0,0) 0%, ${theme.card.bg} 90%)`,
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <h2 style={{ margin: 0, color: theme.text.primary }}>{title}</h2>
+              <IconButton aria-label="close" onClick={() => setOpenOverview(false)} sx={{ color: theme.text.secondary }}>
+                <Close />
+              </IconButton>
+            </div>
+            <Typography sx={{ mt: 2, color: theme.text.primary, whiteSpace: "pre-wrap" }}>{overview || "No description available."}</Typography>
           </div>
         </DialogContent>
       </Dialog>

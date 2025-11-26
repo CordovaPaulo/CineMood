@@ -3,7 +3,8 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { TextField, Button, Card, CardContent, Backdrop, CircularProgress } from "@mui/material"
+import { TextField, Button, Card, CardContent, Backdrop, CircularProgress, IconButton, InputAdornment } from "@mui/material"
+import { Visibility, VisibilityOff } from "@mui/icons-material"
 import Link from "next/link"
 import { Navbar } from "../../components/navbar"
 import { validatePassword } from "@/utils/passwordValidation"
@@ -17,6 +18,7 @@ export default function SignupPage() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   async function checkAuth() {
@@ -126,9 +128,10 @@ export default function SignupPage() {
                 <label className="block text-white text-sm font-medium mb-2">Password</label>
                 <TextField
                   fullWidth
-                  type="password"
+                  // type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
                   disabled={loading}
                   sx={{
                     "& .MuiOutlinedInput-root": {
@@ -139,6 +142,21 @@ export default function SignupPage() {
                       "&:hover fieldset": { borderColor: theme.primary },
                       "&.Mui-focused fieldset": { borderColor: theme.primary },
                     },
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          onClick={() => setShowPassword((s) => !s)}
+                          edge="end"
+                          disableRipple
+                          sx={{ color: theme.text.secondary }}
+                        >
+                          {showPassword ? <Visibility /> : <VisibilityOff />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
                   }}
                 />
               </div>
