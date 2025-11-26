@@ -72,7 +72,7 @@ export default function Home() {
   // dynamic prompt length validation
   const MAX_PROMPT_LENGTH = 50
 
-  const beginSubmit = () => {
+  const beginSubmit = async () => {
     // enforce prompt length before attempting submission
     if ((textInput || "").trim().length > MAX_PROMPT_LENGTH) {
       toast.error(`Please limit your description to ${MAX_PROMPT_LENGTH} characters.`)
@@ -87,7 +87,32 @@ export default function Home() {
       setShowMoodResponse(true)
       return
     }
-    submitRecommendations()
+
+    // Preflight: ask server-side parser if the combination is ambiguous.
+    try {
+      const res = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textInput || "", mood: selectedMood || "", moodResponse: moodResponse || "match" }),
+      })
+
+      if (!res.ok) {
+        let body: any = null
+        try { body = await res.json() } catch {}
+        if (body?.code === "AMBIGUOUS") {
+          toast.error("Mood unclear — please check and try again")
+          return
+        }
+        toast.error(body?.message || "Failed to analyze input. Please try again.")
+        return
+      }
+
+      // parsed is OK — proceed
+      submitRecommendations()
+    } catch (err) {
+      console.error("Preflight parse failed:", err)
+      toast.error("Failed to analyze your description. Please try again.")
+    }
   }
 
   async function submitRecommendations() {

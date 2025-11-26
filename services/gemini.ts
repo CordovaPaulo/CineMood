@@ -896,6 +896,24 @@ Output only JSON with keys: genres, keywords, tempo, runtime_min, runtime_max, e
     parsed.inferredMood = effectiveMood;
   }
 
+  // +++ New: If the user provided an explicit mood but the text strongly
+  // indicates a different mood (and they did not explicitly ask to keep the
+  // provided mood), mark the input ambiguous so callers can surface that to
+  // the user. This centralizes the mismatch detection in the NLP pipeline.
+  try {
+    const textInferred = inferMoodFromText(safeText);
+    const userProvidedMood = mood && String(mood).trim() ? mood : undefined;
+    const askedToKeep = explicitKeepMood(safeText, userProvidedMood);
+    if (userProvidedMood && textInferred && !askedToKeep) {
+      if (String(userProvidedMood).toLowerCase() !== String(textInferred).toLowerCase()) {
+        parsed.ambiguous = true;
+        parsed.inferredMood = textInferred;
+      }
+    }
+  } catch (e) {
+    // non-fatal — leave existing parsed flags as-is
+  }
+
   const requestedMoodResponse = moodResponse === "address" ? "address" : "match";
   parsed.moodResponse = requestedMoodResponse;
   parsed.ambiguous = Boolean(parsed.ambiguous === true);
