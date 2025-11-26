@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button, Menu, MenuItem, IconButton, Tooltip } from "@mui/material"
+import ConfirmDialog from "./confirm-dialog"
 import { LightMode, DarkMode, Menu as MenuIcon } from "@mui/icons-material"
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
@@ -18,6 +19,8 @@ export function Navbar() {
   const [ready, setReady] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
   const [mobileAnchor, setMobileAnchor] = useState<null | HTMLElement>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingLogout, setPendingLogout] = useState(false)
 
   // Fetch session (reads cinemood_auth_token on server)
   useEffect(() => {
@@ -244,21 +247,32 @@ export function Navbar() {
           {/* User menu */}
           <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
             <MenuItem
-              onClick={async () => {
+              onClick={() => {
                 setMenuAnchor(null)
-                if (!confirm("Log out of CineMood?")) return
-                try {
-                  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
-                } finally {
-                  setUserName(null)
-                  // Refresh to let middleware/session reflect cleared cookie
-                  location.href = "/"
-                }
+                setConfirmOpen(true)
               }}
             >
               Logout
             </MenuItem>
           </Menu>
+
+          <ConfirmDialog
+            open={confirmOpen}
+            title="Log out"
+            description="Log out of CineMood?"
+            confirmLabel="Log out"
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={async () => {
+              try {
+                setPendingLogout(true)
+                await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
+              } finally {
+                setPendingLogout(false)
+                setUserName(null)
+                location.href = "/"
+              }
+            }}
+          />
 
           {/* Mobile menu (same items as desktop, shown in a Menu) */}
           <Menu anchorEl={mobileAnchor} open={Boolean(mobileAnchor)} onClose={() => setMobileAnchor(null)}>
@@ -284,15 +298,9 @@ export function Navbar() {
             </MenuItem>
             {ready && userName ? (
               <MenuItem
-                onClick={async () => {
+                onClick={() => {
                   setMobileAnchor(null)
-                  if (!confirm("Log out of CineMood?")) return
-                  try {
-                    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
-                  } finally {
-                    // ensure UI reflects logout
-                    location.href = "/"
-                  }
+                  setConfirmOpen(true)
                 }}
               >
                 Logout

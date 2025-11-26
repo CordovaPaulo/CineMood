@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useTheme } from "@/contexts/theme-context"
+import { getContrastText } from "@/lib/mood-colors"
 
 type MoodResponseType = "match" | "address"
 
@@ -22,7 +23,7 @@ export default function MoodResponse({
         className="px-4 py-2 rounded transition-all duration-300"
         style={{
           backgroundColor: value === "match" ? theme.primary : theme.card.bg,
-          color: "white",
+          color: value === "match" ? getContrastText(theme.primary) : theme.text.primary,
           border: `1px solid ${value === "match" ? theme.primary : theme.card.border}`,
         }}
         onClick={() => onChange?.("match")}
@@ -35,7 +36,7 @@ export default function MoodResponse({
         style={{
           transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           backgroundColor: value === "address" ? theme.primary : theme.card.bg,
-          color: "white",
+          color: value === "address" ? getContrastText(theme.primary) : theme.text.primary,
           border: `1px solid ${value === "address" ? theme.primary : theme.card.border}`,
         }}
         onClick={() => onChange?.("address")}

@@ -49,8 +49,8 @@ export default function VoiceInput({ onTranscript }: VoiceInputProps) {
 
     try {
       const recog = new SpeechRecognition()
-      // Allow continuous listening so the user can speak longer phrases
-      recog.continuous = true
+      // Use non-continuous recognition so the browser can auto-end on silence
+      recog.continuous = false
       recog.interimResults = true
       recog.lang = navigator.language || "en-US"
 
@@ -86,7 +86,7 @@ export default function VoiceInput({ onTranscript }: VoiceInputProps) {
 
       recog.onerror = (ev: any) => {
         console.error("SpeechRecognition error", ev)
-        toast.error("Speech recognition error.")
+        toast.error("Failed capturing voice input, please try again!.")
         setListening(false)
       }
 

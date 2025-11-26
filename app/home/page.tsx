@@ -24,6 +24,7 @@ import { motion } from "framer-motion"
 import { fadeInUp, staggerContainer, fadeIn, itemTransition } from "@/lib/motion"
 import { verifyClientConnectivity, isNavigatorOnline } from "@/lib/network"
 import { useTheme } from "@/contexts/theme-context"
+import { getContrastText, hexToRgba } from "@/lib/mood-colors"
 import { MoodType, MoodResponse as MoodResponseType } from "@/lib/mood-colors"
 import { saveToHistory } from "@/lib/history"
 
@@ -259,7 +260,7 @@ export default function Home() {
               sx={{
                 position: "relative",
                 backgroundColor: theme.card.bg,
-                border: "1px solid #2D2D3D",
+                border: `1px solid ${theme.card.border}`,
                 borderRadius: "1rem",
                 padding: "1rem",
                 transition: "all 0.3s ease",
@@ -270,8 +271,8 @@ export default function Home() {
               {/* Label with Icon */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <AutoAwesome sx={{ color: "#A855F7", fontSize: "1.25rem" }} />
-                  <span className="text-white text-sm font-medium">Describe how you're feeling (optional)</span>
+                  <AutoAwesome sx={{ color: theme.primary, fontSize: "1.25rem" }} />
+                  <span className="text-sm font-medium" style={{ color: theme.text.primary }}>Describe how you're feeling (optional)</span>
                 </div>
               </div>
 
@@ -288,14 +289,14 @@ export default function Home() {
                 inputProps={{ maxLength: MAX_PROMPT_LENGTH }}
                 sx={{
                   "& .MuiInput-root": {
-                    color: "white",
+                    color: theme.text.primary,
                     "&:before": { borderBottom: "none" },
                     "&:hover:before": { borderBottom: "none" },
                     "&:after": { borderBottom: "none" },
                   },
                   "& .MuiInput-input::placeholder": {
-                    color: "#A0A0A0",
-                    opacity: 0.7,
+                    color: theme.text.secondary,
+                    opacity: 0.85,
                   },
                 }}
               />
@@ -316,7 +317,7 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <span
                   style={{
-                    color: textInput.length > MAX_PROMPT_LENGTH ? "#F87171" : "#9CA3AF",
+                    color: textInput.length > MAX_PROMPT_LENGTH ? "#F87171" : theme.text.secondary,
                     fontSize: 13,
                     margin: 0,
                   }}
@@ -326,7 +327,7 @@ export default function Home() {
                 </div>
               </div>
               <div style={{ marginTop: 8 }}>
-                <p style={{ color: "#9CA3AF", fontSize: 13, margin: 0 }}>
+                <p style={{ color: theme.text.secondary, fontSize: 13, margin: 0 }}>
                   {selectedMood 
                     ? "Add details to refine your search, or submit with just your mood selection."
                     : "Describe your mood in text — we'll detect it and ask how movies should relate to it."}
@@ -391,7 +392,7 @@ export default function Home() {
                   onChange={(val: MoodResponseTypeLocal) => handleMoodResponseSelect(val)}
                   className="w-full"
                 />
-                <p style={{ color: "#9CA3AF", textAlign: "center", marginTop: 10, marginBottom: 6, fontSize: 13 }}>
+                <p style={{ color: theme.text.secondary, textAlign: "center", marginTop: 10, marginBottom: 6, fontSize: 13 }}>
                   {selectedMood 
                     ? "Choose whether you want movies that match your mood or help address it."
                     : "We'll detect your mood from your description and apply your preference."}
@@ -413,12 +414,12 @@ export default function Home() {
                 onClick={() => setShowMoodResponse(false)}
                 fullWidth
                 sx={{
-                  borderColor: "#2D2D3D",
-                  color: "white",
+                  borderColor: theme.card.border,
+                  color: theme.text.primary,
                   textTransform: "none",
                   minHeight: 44,
                   borderRadius: "0.75rem",
-                  "&:hover": { borderColor: "#444" },
+                  "&:hover": { borderColor: hexToRgba(theme.primary, 0.12) },
                 }}
               >
                 Cancel
@@ -436,15 +437,15 @@ export default function Home() {
                 startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
                 sx={{
                   backgroundColor: theme.primary,
-                  color: "white",
+                  color: getContrastText(theme.primary),
                   textTransform: "none",
                   minHeight: 44,
                   borderRadius: "0.75rem",
                   transition: "all 0.3s ease",
                   "&:hover": { backgroundColor: theme.primaryDark },
                   "&.Mui-disabled": {
-                    backgroundColor: "#4b2b66",
-                    color: "#BDB7DF",
+                    backgroundColor: hexToRgba(theme.primary, 0.5),
+                    color: theme.text.secondary,
                     opacity: 0.9,
                   },
                 }}
@@ -479,7 +480,7 @@ export default function Home() {
                 variant="contained"
                 sx={{
                   backgroundColor: theme.primary,
-                  color: "white",
+                  color: getContrastText(theme.primary),
                   textTransform: "none",
                   fontSize: "1rem",
                   fontWeight: 600,
