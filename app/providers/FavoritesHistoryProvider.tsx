@@ -26,11 +26,13 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
 
   const fetchFavorites = async () => {
     setLoadingFavorites(true);
+    // Only show favorites-related toasts when the user is on the favorites page
+    const showFavoritesToasts = !suppressToasts && (pathname === "/favorites" || (typeof pathname === "string" && pathname.startsWith("/favorites")));
     try {
       const res = await fetch("/api/recommendations/favorite");
       if (!res.ok) {
         const body = await res.text().catch(() => null);
-        if (!suppressToasts) {
+        if (showFavoritesToasts) {
           if (res.status === 401) {
             toast.info("Please log in to view your favorites.");
           } else {
@@ -40,10 +42,12 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
         throw new Error("Failed to fetch favorites");
       }
       const data = await res.json();
-      setFavorites((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      // If the API returned successfully but with no prompts (null/empty), treat as successful empty state
+      const prompts = Array.isArray(data?.prompts) ? data.prompts : [];
+      setFavorites(prompts.sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchFavorites error", e);
-      if (!suppressToasts) toast.error("Unable to load favorites right now.");
+      if (showFavoritesToasts) toast.error("Unable to load favorites right now.");
     } finally {
       setLoadingFavorites(false);
     }
@@ -51,11 +55,13 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
+    // Only show history-related toasts when the user is on the history page
+    const showHistoryToasts = !suppressToasts && (pathname === "/history" || (typeof pathname === "string" && pathname.startsWith("/history")));
     try {
       const res = await fetch("/api/history");
       if (!res.ok) {
         const body = await res.text().catch(() => null);
-        if (!suppressToasts) {
+        if (showHistoryToasts) {
           if (res.status === 401) {
             toast.info("Please log in to view your history.");
           } else {
@@ -65,10 +71,11 @@ export function FavoritesHistoryProvider({ children }: { children: React.ReactNo
         throw new Error("Failed to fetch history");
       }
       const data = await res.json();
-      setHistory((data.prompts || []).sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const prompts = Array.isArray(data?.prompts) ? data.prompts : [];
+      setHistory(prompts.sort((a: Prompt, b: Prompt) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error("fetchHistory error", e);
-      if (!suppressToasts) toast.error("Unable to load history right now.");
+      if (showHistoryToasts) toast.error("Unable to load history right now.");
     } finally {
       setLoadingHistory(false);
     }
