@@ -11,13 +11,17 @@ interface MovieCardProps {
   rating: number | null
   overview: string
   trailerId?: string | null
+  onSave?: (() => Promise<void> | void)
+  disableHover?: boolean
+  compact?: boolean
 }
 
-export function MovieCard({ title, posterPath, rating, overview, trailerId }: MovieCardProps) {
+export function MovieCard({ title, posterPath, rating, overview, trailerId, onSave, disableHover = false, compact = false }: MovieCardProps) {
   const { theme } = useTheme()
   const [isHovered, setIsHovered] = useState(false)
   const [openTrailer, setOpenTrailer] = useState(false)
   const [openOverview, setOpenOverview] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   // memoized placeholder SVG with title text (used when posterPath is missing)
   const placeholderSrc = useMemo(() => {
@@ -69,24 +73,28 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
 
   return (
     <Card
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      sx={{
-        backgroundColor: theme.card.bg,
-        border: "1px solid #2D2D3D",
-        borderRadius: "1rem",
-        overflow: "hidden",
-        cursor: "pointer",
-        transition: "all 0.3s ease",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        height: 480,
-        "&:hover": {
-          borderColor: "#A855F7",
-          boxShadow: "0 0 15px rgba(168, 85, 247, 0.3)",
-        },
-      }}
+      onMouseEnter={() => !disableHover && setIsHovered(true)}
+      onMouseLeave={() => !disableHover && setIsHovered(false)}
+        sx={{
+          backgroundColor: theme.card.bg,
+          border: "1px solid #2D2D3D",
+          borderRadius: "1rem",
+          overflow: "hidden",
+          cursor: disableHover ? "default" : "pointer",
+          transition: "all 0.3s ease",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          height: 480,
+          ...(disableHover
+            ? {}
+            : {
+                "&:hover": {
+                  borderColor: "#A855F7",
+                  boxShadow: "0 0 15px rgba(168, 85, 247, 0.3)",
+                },
+              }),
+        }}
     >
       <CardMedia
         component="img"
@@ -94,7 +102,7 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         alt={title}
         sx={{
           objectFit: "cover",
-          height: 300,
+          height: compact ? 260 : 300,
         }}
       />
 
@@ -119,8 +127,8 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
         {ratingText}
       </div>
 
-      {/* Hover Overlay - actions only visible on hover */}
-      {isHovered && (
+      {/* Hover Overlay - actions only visible on hover (can be disabled) */}
+      {isHovered && !disableHover && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="text-center" style={{ maxWidth: 420 }}>
             <h3 className="font-semibold mb-2" style={{ color: "#FFFFFF" }}>{title}</h3>
@@ -142,6 +150,33 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
 
               <Button
                 variant="outlined"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSaving(true)
+                  try {
+                    if (onSave) {
+                      const res = onSave()
+                      if (res && typeof (res as Promise<void>).then === "function") (res as Promise<void>).finally(() => setSaving(false))
+                      else setSaving(false)
+                    } else {
+                      setSaving(false)
+                    }
+                  } catch (err) {
+                    setSaving(false)
+                  }
+                }}
+                disabled={!onSave || saving}
+                sx={{
+                  borderColor: theme.primary,
+                  color: theme.primary,
+                  textTransform: "none",
+                }}
+              >
+                {saving ? "Saving..." : "Add to Favorites"}
+              </Button>
+
+              <Button
+                variant="outlined"
                 onClick={() => setOpenTrailer(true)}
                 disabled={!embedUrl}
                 sx={{
@@ -156,27 +191,28 @@ export function MovieCard({ title, posterPath, rating, overview, trailerId }: Mo
           </div>
         </div>
       )}
-
-      <CardContent className="py-3">
-        <h3
-          className="font-semibold line-clamp-2 mb-2"
-          style={{
-            color: theme.text.primary,
-            transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-            fontSize: "0.95rem",
-          }}
-        >
-          {title}
-        </h3>
-        {/* Keep a short excerpt visible, actions are only on hover in the overlay above */}
-        <Typography
-          variant="body2"
-          className="text-sm line-clamp-3 mb-0"
-          sx={{ color: theme.text.secondary }}
-        >
-          {overview || "No description available."}
-        </Typography>
-      </CardContent>
+        {!compact && (
+          <CardContent className="py-3">
+            <h3
+              className="font-semibold line-clamp-2 mb-2"
+              style={{
+                color: theme.text.primary,
+                transition: "color 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                fontSize: "0.95rem",
+              }}
+            >
+              {title}
+            </h3>
+            {/* Keep a short excerpt visible, actions are only on hover in the overlay above */}
+            <Typography
+              variant="body2"
+              className="text-sm line-clamp-3 mb-0"
+              sx={{ color: theme.text.secondary }}
+            >
+              {overview || "No description available."}
+            </Typography>
+          </CardContent>
+        )}
 
       {/* Trailer Dialog */}
       <Dialog
