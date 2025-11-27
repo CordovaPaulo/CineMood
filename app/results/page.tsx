@@ -45,8 +45,8 @@ export default function ResultsPage() {
   const [parsedData, setParsedData] = useState<ParsedData | null>(null)
   const { refreshFavorites } = useFavoritesHistory()
 
-  // helper to pick a random sample of up to 5 from a list and persist the shown list
-  function pickRandomFive(src?: Movie[]) {
+  // helper to pick a random sample of up to `maxCount` (default 10) from a list and persist the shown list
+  function pickRandomSample(src?: Movie[], maxCount = 10) {
     const pool = Array.isArray(src) && src.length > 0 ? src.slice() : allResults.slice()
     if (!pool || pool.length === 0) return []
     // shuffle (Fisher–Yates)
@@ -54,7 +54,7 @@ export default function ResultsPage() {
       const j = Math.floor(Math.random() * (i + 1))
       ;[pool[i], pool[j]] = [pool[j], pool[i]]
     }
-    const chosen = pool.slice(0, Math.min(5, pool.length))
+    const chosen = pool.slice(0, Math.min(maxCount, pool.length))
     try {
       sessionStorage.setItem("recommendations", JSON.stringify(chosen))
     } catch {}
@@ -120,7 +120,7 @@ export default function ResultsPage() {
           try {
             sessionStorage.setItem("recommendations_all", JSON.stringify(transientAll))
           } catch {}
-          const sample = pickRandomFive(transientAll)
+          const sample = pickRandomSample(transientAll, 10)
           setMovies(sample)
         }
         try {
@@ -140,7 +140,7 @@ export default function ResultsPage() {
           try {
             sessionStorage.setItem("recommendations_all", JSON.stringify(transient))
           } catch {}
-          const sample = pickRandomFive(transient)
+          const sample = pickRandomSample(transient, 10)
           setMovies(sample)
         }
         try {
@@ -159,8 +159,8 @@ export default function ResultsPage() {
           if (Array.isArray(parsedAll) && parsedAll.length > 0) {
             if (mounted) {
               setAllResults(parsedAll)
-              const sample = pickRandomFive(parsedAll)
-              setMovies(sample.length ? sample : parsedAll.slice(0, Math.min(5, parsedAll.length)))
+              const sample = pickRandomSample(parsedAll, 10)
+              setMovies(sample.length ? sample : parsedAll.slice(0, Math.min(10, parsedAll.length)))
             }
             if (mounted) setIsLoading(false)
             return
@@ -169,7 +169,7 @@ export default function ResultsPage() {
         if (storedShown) {
           const parsed = JSON.parse(storedShown)
           if (Array.isArray(parsed) && parsed.length > 0) {
-            if (mounted) setMovies(parsed.slice(0, Math.min(5, parsed.length)))
+            if (mounted) setMovies(parsed.slice(0, Math.min(10, parsed.length)))
             if (mounted) setIsLoading(false)
             return
           }
@@ -231,7 +231,7 @@ export default function ResultsPage() {
         } catch {}
       }
 
-      const newSample = pickRandomFive(pool)
+      const newSample = pickRandomSample(pool)
       setMovies(newSample)
 
       // stop loader and show toast
@@ -244,7 +244,7 @@ export default function ResultsPage() {
     setTimeout(performRefresh, 2000)
   }
 
-  // Save only the currently shown movies (the sample of up to 5)
+  // Save only a single movie from the currently shown movies (save one movie per favorite)
   const handleAddFavorites = async () => {
     await checkAuth()
 
@@ -260,9 +260,12 @@ export default function ResultsPage() {
       return
     }
 
+    // choose a single movie to save — we pick the first shown movie by default
+    const movieToSave = movies[0]
+
     setIsLoading(true)
     try {
-      const movieIds = movies.map((m) => String(m.id))
+      const movieIds = [String(movieToSave.id)]
       const payload = { mood: selectedMood || "", movieIds }
 
       const res = await fetch("/api/recommendations/favorite", {
@@ -273,7 +276,7 @@ export default function ResultsPage() {
       const data = await res.json()
 
       if(res.status === 409){
-        toast.info("These picks are already in your favorites.")
+        toast.info("This movie is already in your favorites.")
         return
       }
 
@@ -290,6 +293,50 @@ export default function ResultsPage() {
     } catch (e) {
       console.error("Save favorites error:", e)
       toast.error("Failed to save favorites")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Save a specific movie by id (used by per-card save button)
+  const handleSaveMovie = async (movieId: number | string) => {
+    await checkAuth()
+
+    if (!isNavigatorOnline()) {
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 2500)
+      alert("You’re offline. Reconnect to save favorites.")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const movieIds = [String(movieId)]
+      const payload = { mood: selectedMood || "", movieIds }
+
+      const res = await fetch("/api/recommendations/favorite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+
+      if (res.status === 409) {
+        toast.info("This movie is already in your favorites.")
+        return
+      }
+
+      if (!res.ok) {
+        toast.error(data?.error || "Failed to save favorite")
+      } else {
+        toast.success("Saved to favorites")
+        try {
+          refreshFavorites && refreshFavorites()
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.error("Save favorite error:", e)
+      toast.error("Failed to save favorite")
     } finally {
       setIsLoading(false)
     }
@@ -402,20 +449,7 @@ export default function ResultsPage() {
                 >
                   Refresh Picks
                 </Button>
-                <Button
-                  onClick={handleAddFavorites}
-                  variant="contained"
-                  disabled={isLoading || (movies?.length ?? 0) === 0}
-                  sx={{
-                    backgroundColor: theme.primary,
-                    color: "white",
-                    textTransform: "none",
-                    transition: "all 0.3s ease",
-                    "&:hover": { backgroundColor: theme.primaryDark },
-                  }}
-                >
-                  Add to Favorites
-                </Button>
+                {/* Per-card Save buttons are available on each movie — removed global Add button */}
               </div>
             </div>
 
@@ -503,6 +537,7 @@ export default function ResultsPage() {
                      rating={movie.vote_average ?? movie.rating ?? null}
                      overview={movie.overview}
                      trailerId={movie.trailer_youtube_id ?? null}
+                     onSave={() => handleSaveMovie(movie.id)}
                    />
                  </motion.div>
                ))

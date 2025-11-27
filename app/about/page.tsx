@@ -33,12 +33,10 @@ export default function AboutPage() {
           >
             <CardContent className="py-8 px-8">
               <p className="text-lg leading-relaxed mb-4" style={{ color: theme.text.primary }}>
-                CineMood is your personal movie companion that understands how you feel. We believe that the perfect
-                movie can transform your mood, inspire you, or simply give you the escape you need.
+                CineMood is an AI-powered movie companion that understands your emotions and recommends films based on how you feel. Using sentiment analysis, it can match your current mood or help you shift it—whether you want comfort, inspiration, or escape.
               </p>
               <p className="text-lg leading-relaxed" style={{ color: theme.text.secondary }}>
-                Select your mood or describe how you're feeling, and we'll find the perfect movies that match your
-                emotional state.
+                Just tap an emoji or describe your mood, and CineMood instantly delivers personalized, emotion-aware movie suggestions. Enjoy a faster, more meaningful way to choose what to watch.
               </p>
             </CardContent>
           </Card>
